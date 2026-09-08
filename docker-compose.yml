@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # Spatial Database: PostgreSQL 16 with PostGIS 3.4
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: aura_fire_postgis
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aura_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aura_password}
+      POSTGRES_DB: ${POSTGRES_DB:-aura_fire_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aura_user} -d ${POSTGRES_DB:-aura_fire_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aura_net
+
+  # In-Memory Cache & Message Broker
+  redis:
+    image: redis:7.2-alpine
+    container_name: aura_fire_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aura_net
+
+  # Backend: FastAPI Spatial Triage & Ingestion Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aura_fire_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - ENVIRONMENT=development
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-aura_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aura_password}
+      - POSTGRES_DB=${POSTGRES_DB:-aura_fire_db}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-aura_user}:${POSTGRES_PASSWORD:-aura_password}@postgres:5432/${POSTGRES_DB:-aura_fire_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - NASA_FIRMS_MAP_KEY=${NASA_FIRMS_MAP_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aura_net
+
+  # Celery Asynchronous Worker for STAC Satellite Imagery & Heavy Tasks
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aura_fire_celery
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-aura_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aura_password}
+      - POSTGRES_DB=${POSTGRES_DB:-aura_fire_db}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-aura_user}:${POSTGRES_PASSWORD:-aura_password}@postgres:5432/${POSTGRES_DB:-aura_fire_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aura_net
+
+networks:
+  aura_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
