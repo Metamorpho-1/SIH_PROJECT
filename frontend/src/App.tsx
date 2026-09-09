@@ -720,7 +720,18 @@ export default function App() {
             </div>
 
             {/* Multi-Spectral Imagery Card with Toggles */}
-            {activeScenario?.satellite_imagery ? (
+            {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
+              <div className="p-6 text-center bg-slate-900 border border-slate-700 shadow-inner rounded-xl space-y-3">
+                <Satellite className="w-8 h-8 text-cyan-400 animate-bounce mx-auto" />
+                <div>
+                  <h4 className="text-sm font-bold text-white mb-1">CNN Verification Queued</h4>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Heavy deep-learning inference offloaded to Celery cluster.<br/>
+                    Awaiting Redis Pub/Sub response...
+                  </p>
+                </div>
+              </div>
+            ) : activeScenario?.satellite_imagery ? (
               <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono text-slate-300 font-bold flex items-center gap-1.5">

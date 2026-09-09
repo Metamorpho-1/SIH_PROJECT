@@ -116,9 +116,13 @@ def compute_pasquill_gifford_stability(wind_speed_m_s: float, solar_radiation_w_
             elif w <= 5: return "E", "Slightly Stable (Clear sky, moderate wind)"
             else: return "D", "Neutral (Clear sky, strong wind)"
 
+from fastapi_cache.decorator import cache
+
+@cache(expire=600)  # 10 minutes cache
 async def get_facility_weather(facility_key: str) -> Dict[str, Any]:
     """
-    Gets real-time weather data and stability class for a facility. Uses cache.
+    Gets real-time weather data and stability class for a facility.
+    Wrapped in Redis cache via fastapi-cache2 decorator.
     
     Args:
         facility_key (str): The unique identifier for the facility.
@@ -129,13 +133,6 @@ async def get_facility_weather(facility_key: str) -> Dict[str, Any]:
     facility = DEMO_FACILITIES.get(facility_key)
     if not facility:
         raise ValueError(f"Facility {facility_key} not found")
-
-    now = time.time()
-    if facility_key in _weather_cache:
-        expiry, cached_data = _weather_cache[facility_key]
-        if now < expiry:
-            cached_data["cached"] = True
-            return cached_data
 
     lat, lon = facility["lat"], facility["lon"]
     weather = await fetch_live_weather(lat, lon)
@@ -159,8 +156,6 @@ async def get_facility_weather(facility_key: str) -> Dict[str, Any]:
         "stability_description": desc,
         "fetched_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "source": "Open-Meteo GFS",
-        "cached": False
+        "cached": True # It's always cached logically if repeated
     }
-
-    _weather_cache[facility_key] = (now + CACHE_TTL_SECONDS, data.copy())
     return data

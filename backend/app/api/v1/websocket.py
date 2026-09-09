@@ -116,6 +116,21 @@ async def tactical_feed_websocket(websocket: WebSocket):
                 # In production we would log this. Breaking loop on fatal errors.
                 break
 
+    # Background task for subscribing to Redis Celery events
+    async def redis_subscription_loop():
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        pubsub = redis.pubsub()
+        await pubsub.subscribe("tactical_alerts")
+        
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    data = json.loads(message["data"])
+                    await websocket.send_json(data)
+        except asyncio.CancelledError:
+            await pubsub.unsubscribe("tactical_alerts")
+            
     # Background task for receiving frontend commands
     async def receive_commands_loop():
         nonlocal focused_facility
@@ -130,77 +145,21 @@ async def tactical_feed_websocket(websocket: WebSocket):
                 if cmd == "set_facility_focus" and facility:
                     focused_facility = facility
                     
-                elif cmd == "inject_incident" and facility in DEMO_FACILITIES:
-                    facility_info = DEMO_FACILITIES[facility]
-                    
-                    # Inject 120MW explosion event
-                    incident_frp = 120.0
-                    incident_bright = 345.0
-                    
-                    telemetry = {
-                        "frp": incident_frp,
-                        "bright_ti4": incident_bright,
-                        "tai": round(calculate_tai(incident_frp, incident_bright) if callable(calculate_tai) else 0.8, 2),
-                        "spf": round(calculate_spf(incident_frp) if callable(calculate_spf) else 0.9, 2)
-                    }
-                    
-                    features = extract_features_from_telemetry(telemetry)
-                    triage_result = triage_classifier.predict(features)
-                    
-                    # Generate patch and verify using CNN
-                    patch = generate_calibrated_patch(
-                        lat=facility_info.get("lat", 0.0),
-                        lon=facility_info.get("lon", 0.0),
-                        timestamp=datetime.now(timezone.utc).isoformat()
-                    )
-                    cnn_result = cnn_verifier(patch) if callable(cnn_verifier) else (getattr(cnn_verifier, "predict", None) or getattr(cnn_verifier, "verify", lambda x: {}))(patch)
-                    
-                    # Generate dispersion hazard cone
-                    q_rate = estimate_emission_rate_q(incident_frp)
-                    dispersion = generate_plume_hazard_cone(
-                        lat=facility_info.get("lat", 0.0),
-                        lon=facility_info.get("lon", 0.0),
-                        q_rate=q_rate
-                    )
-                    
-                    alert_msg = {
-                        "type": "INCIDENT_ALERT",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "facility_key": facility,
-                        "facility_name": facility_info.get("name", "Unknown Facility"),
-                        "coordinates": {
-                            "lat": facility_info.get("lat", 0.0),
-                            "lon": facility_info.get("lon", 0.0)
-                        },
-                        "telemetry": telemetry,
-                        "triage_result": triage_result,
-                        "severity": "CRITICAL",
-                        "scan_progress_pct": 100.0,
-                        "cnn_verification": cnn_result,
-                        "plume_dispersion": dispersion,
-                        "ndrf_sop_dispatch": NDRF_SOP_DISPATCH
-                    }
-                    
-                    await websocket.send_json(alert_msg)
-            
             except WebSocketDisconnect:
                 break
             except Exception:
-                # Continue loop on invalid messages or parsing errors
                 continue
                 
-    # Run both loops concurrently
+    # Run loops concurrently
     send_task = asyncio.create_task(send_telemetry_loop())
     recv_task = asyncio.create_task(receive_commands_loop())
+    redis_task = asyncio.create_task(redis_subscription_loop())
     
     try:
-        # Wait for either task to finish (e.g., via disconnect)
         done, pending = await asyncio.wait(
-            [send_task, recv_task], 
+            [send_task, recv_task, redis_task], 
             return_when=asyncio.FIRST_COMPLETED
         )
-        
-        # Cancel any pending tasks
         for task in pending:
             task.cancel()
     except Exception:

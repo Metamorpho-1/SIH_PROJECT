@@ -3,12 +3,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1 import api_v1_router
 
+from contextlib import asynccontextmanager
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from app.core.redis_client import init_redis_pool, close_redis_pool, get_redis
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_redis_pool()
+    redis = await get_redis()
+    FastAPICache.init(RedisBackend(redis), prefix="aura-cache")
+    yield
+    # Shutdown
+    await close_redis_pool()
+
 app = FastAPI(
     title="AURA-Fire API",
     description="Operational Spatio-Temporal Intelligence System for Industrial Thermal Anomalies (NTRO SIH-26162)",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS middleware for frontend dashboard access

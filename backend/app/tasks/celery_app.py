@@ -10,7 +10,7 @@ celery_app = Celery(
     "aura_fire_tasks",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.stac_worker"]
+    include=["app.tasks.stac_worker", "app.tasks.celery_worker"]
 )
 
 celery_app.conf.update(
