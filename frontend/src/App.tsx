@@ -11,7 +11,8 @@ import {
   VolumeX,
   FileText,
   Wifi,
-  Wind
+  Wind,
+  AlertTriangle
 } from 'lucide-react';
 import { TacticalMap } from './components/TacticalMap';
 import { TelemetryChart } from './components/TelemetryChart';
@@ -509,7 +510,7 @@ export default function App() {
               targetCoords={currentCoords}
               targetName={selectedFacility.key}
               isExplosion={isExplosion}
-              plumeData={activeScenario?.plume_dispersion || null}
+              plumeData={currentTimelineStage >= 3 ? activeScenario?.plume_dispersion : null}
               liveWeather={activeScenario?.live_weather || null}
               onSelectFacility={handleFacilitySelect}
             />
@@ -725,145 +726,195 @@ export default function App() {
             <div className="h-px bg-zinc-800/50 w-full" />
 
             {/* Section 2: Tier 2 CNN Verification */}
-            <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Satellite className="w-3.5 h-3.5" />
-                  Tier 2: Spectral Validation
-                </h3>
-                <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                  Sentinel-2 SWIR
-                </span>
-              </div>
-
-              {/* Multi-Spectral Imagery Card */}
-              {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
-                <div className="p-8 text-center bg-zinc-900/30 border border-zinc-800/60 rounded-2xl space-y-3">
-                  <Satellite className="w-6 h-6 text-zinc-400 animate-pulse mx-auto" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-zinc-200 mb-1">Inference Queued</h4>
-                    <p className="text-xs text-zinc-500">
-                      Processing high-resolution deep learning models<br/>on distributed compute cluster...
-                    </p>
-                  </div>
+            {currentTimelineStage >= 1 && (
+              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Satellite className="w-3.5 h-3.5" />
+                    Tier 2: Spectral Validation
+                  </h3>
+                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                    Sentinel-2 SWIR
+                  </span>
                 </div>
-              ) : activeScenario?.satellite_imagery ? (
-                <div className="p-4 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
-                      <Crosshair className="w-3.5 h-3.5" />
-                      <span>64x64 px Patch</span>
-                    </span>
-                    
-                    {/* View Mode Tabs */}
-                    <div className="flex rounded-lg bg-zinc-950 p-1 border border-zinc-800/80 text-[10px] font-medium">
-                      <button
-                        onClick={() => setSatelliteViewMode('swir')}
-                        className={`px-2.5 py-1 rounded-md transition ${
-                          satelliteViewMode === 'swir' 
-                            ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
-                            : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                      >
-                        SWIR Heat
-                      </button>
-                      <button
-                        onClick={() => setSatelliteViewMode('rgb')}
-                        className={`px-2.5 py-1 rounded-md transition ${
-                          satelliteViewMode === 'rgb' 
-                            ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
-                            : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                      >
-                        Optical RGB
-                      </button>
-                      <button
-                        onClick={() => setSatelliteViewMode('mask')}
-                        className={`px-2.5 py-1 rounded-md transition ${
-                          satelliteViewMode === 'mask' 
-                            ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
-                            : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                      >
-                        Combustion Mask
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* Satellite Image Display */}
-                  <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
-                    <img 
-                      src={satelliteViewMode === 'rgb' 
-                        ? activeScenario.satellite_imagery.rgb_preview_url 
-                        : activeScenario.satellite_imagery.swir_preview_url
-                      }
-                      alt="Sentinel-2 Satellite Imagery"
-                      className="w-full h-full object-cover opacity-90"
-                    />
-
-                    {/* Combustion Mask Overlay */}
-                    {satelliteViewMode === 'mask' && activeScenario.cnn_verification && (
-                      <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-                        <div className="text-center p-4 rounded-xl bg-zinc-950/90 border border-indigo-500/30 text-indigo-200 shadow-xl">
-                          <p className="text-xs font-semibold text-indigo-300 mb-1">Combustion Core Isolated</p>
-                          <p className="text-[11px] text-zinc-400">
-                            {activeScenario.cnn_verification.fire_footprint.active_pixel_count} Active Pixels<br/>
-                            ~{activeScenario.cnn_verification.fire_footprint.fire_area_m2.toLocaleString()} m²
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="absolute bottom-2 left-2 bg-zinc-950/80 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-medium text-zinc-400 border border-zinc-800/50">
-                      {satelliteViewMode === 'rgb' 
-                        ? 'B04-B03-B02 (Natural Visible)' 
-                        : satelliteViewMode === 'swir' 
-                          ? 'B12-B08-B04 (SWIR False Color)' 
-                          : 'AuraFire Multi-Spectral Segmentation'}
-                    </div>
-                  </div>
-
-                  {/* CNN Metrics Details */}
-                  {activeScenario.cnn_verification && (
-                    <div className="space-y-2.5 pt-2 text-xs">
-                      <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/60 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 font-medium">Validation Class:</span>
-                          <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {activeScenario.cnn_verification.prediction_class.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 font-medium">Model Confidence:</span>
-                          <span className="font-semibold text-zinc-200">{(activeScenario.cnn_verification.confidence * 100).toFixed(2)}%</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 font-medium">Max SWIR Reflectance:</span>
-                          <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.fire_footprint.max_swir_reflectance.toFixed(3)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 font-medium">Verified Fire Area:</span>
-                          <span className="font-semibold text-zinc-200">
-                            {activeScenario.cnn_verification.fire_footprint.fire_area_m2.toLocaleString()} m² ({activeScenario.cnn_verification.fire_footprint.fire_area_hectares} ha)
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
-                          <span className="text-zinc-400 font-medium">System Action:</span>
-                          <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.action}</span>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-zinc-500 italic bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50">
-                        {activeScenario.cnn_verification.explanation}
+                {/* Multi-Spectral Imagery Card */}
+                {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
+                  <div className="p-8 text-center bg-zinc-900/30 border border-zinc-800/60 rounded-2xl space-y-3">
+                    <Satellite className="w-6 h-6 text-zinc-400 animate-pulse mx-auto" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-zinc-200 mb-1">Inference Queued</h4>
+                      <p className="text-xs text-zinc-500">
+                        Processing high-resolution deep learning models<br/>on distributed compute cluster...
                       </p>
                     </div>
-                  )}
+                  </div>
+                ) : activeScenario?.satellite_imagery ? (
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
+                        <Crosshair className="w-3.5 h-3.5" />
+                        <span>64x64 px Patch</span>
+                      </span>
+                      
+                      {/* View Mode Tabs */}
+                      <div className="flex rounded-lg bg-zinc-950 p-1 border border-zinc-800/80 text-[10px] font-medium">
+                        <button
+                          onClick={() => setSatelliteViewMode('swir')}
+                          className={`px-2.5 py-1 rounded-md transition ${
+                            satelliteViewMode === 'swir' 
+                              ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          SWIR Heat
+                        </button>
+                        <button
+                          onClick={() => setSatelliteViewMode('rgb')}
+                          className={`px-2.5 py-1 rounded-md transition ${
+                            satelliteViewMode === 'rgb' 
+                              ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          Optical RGB
+                        </button>
+                        <button
+                          onClick={() => setSatelliteViewMode('mask')}
+                          className={`px-2.5 py-1 rounded-md transition ${
+                            satelliteViewMode === 'mask' 
+                              ? 'bg-zinc-800 text-zinc-100 shadow-sm' 
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          Combustion Mask
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Satellite Image Display */}
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
+                      <img 
+                        src={satelliteViewMode === 'rgb' 
+                          ? activeScenario.satellite_imagery.rgb_preview_url 
+                          : activeScenario.satellite_imagery.swir_preview_url
+                        }
+                        alt="Sentinel-2 Satellite Imagery"
+                        className="w-full h-full object-cover opacity-90"
+                      />
+
+                      {/* Combustion Mask Overlay */}
+                      {satelliteViewMode === 'mask' && activeScenario.cnn_verification && (
+                        <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                          <div className="text-center p-4 rounded-xl bg-zinc-950/90 border border-indigo-500/30 text-indigo-200 shadow-xl">
+                            <p className="text-xs font-semibold text-indigo-300 mb-1">Combustion Core Isolated</p>
+                            <p className="text-[11px] text-zinc-400">
+                              {activeScenario.cnn_verification.fire_footprint.active_pixel_count} Active Pixels<br/>
+                              ~{activeScenario.cnn_verification.fire_footprint.fire_area_m2.toLocaleString()} m²
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-2 left-2 bg-zinc-950/80 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-medium text-zinc-400 border border-zinc-800/50">
+                        {satelliteViewMode === 'rgb' 
+                          ? 'B04-B03-B02 (Natural Visible)' 
+                          : satelliteViewMode === 'swir' 
+                            ? 'B12-B08-B04 (SWIR False Color)' 
+                            : 'AuraFire Multi-Spectral Segmentation'}
+                      </div>
+                    </div>
+
+                    {/* CNN Metrics Details */}
+                    {activeScenario.cnn_verification && (
+                      <div className="space-y-2.5 pt-2 text-xs">
+                        <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/60 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400 font-medium">Validation Class:</span>
+                            <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'}`}>
+                              {activeScenario.cnn_verification.prediction_class.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400 font-medium">Model Confidence:</span>
+                            <span className="font-semibold text-zinc-200">{(activeScenario.cnn_verification.confidence * 100).toFixed(2)}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400 font-medium">Max SWIR Reflectance:</span>
+                            <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.fire_footprint.max_swir_reflectance.toFixed(3)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400 font-medium">Verified Fire Area:</span>
+                            <span className="font-semibold text-zinc-200">
+                              {activeScenario.cnn_verification.fire_footprint.fire_area_m2.toLocaleString()} m² ({activeScenario.cnn_verification.fire_footprint.fire_area_hectares} ha)
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
+                            <span className="text-zinc-400 font-medium">System Action:</span>
+                            <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.action}</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-zinc-500 italic bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50">
+                          {activeScenario.cnn_verification.explanation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center bg-zinc-900/30 border border-zinc-800/60 rounded-2xl">
+                    <p className="text-xs text-zinc-500 font-medium">Awaiting High-Resolution Satellite Pass...</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Section 3: Plume & Evacuation SOP */}
+            {currentTimelineStage >= 3 && activeScenario?.ndrf_sop_dispatch && (
+              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4 pt-6">
+                <div className="h-px bg-zinc-800/50 w-full mb-6" />
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Wind className="w-3.5 h-3.5" />
+                    Tier 3: Dispersion & SOP
+                  </h3>
+                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                    Gaussian Plume
+                  </span>
                 </div>
-              ) : (
-                <div className="p-6 text-center bg-zinc-900/30 border border-zinc-800/60 rounded-2xl">
-                  <p className="text-xs text-zinc-500 font-medium">Awaiting High-Resolution Satellite Pass...</p>
+                
+                <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-900/30 space-y-3 shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      NDRF DISPATCH: {activeScenario.ndrf_sop_dispatch.status}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                      <p className="text-zinc-500 font-medium mb-1">Evacuation Radius</p>
+                      <p className="text-zinc-200 font-semibold">{activeScenario.ndrf_sop_dispatch.evacuation_zone_km} km</p>
+                    </div>
+                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                      <p className="text-zinc-500 font-medium mb-1">Population at Risk</p>
+                      <p className="text-zinc-200 font-semibold">~{activeScenario.ndrf_sop_dispatch.total_population_at_risk.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                      <p className="text-zinc-500 font-medium mb-1">Chemical Hazard</p>
+                      <p className="text-red-400 font-semibold">{activeScenario.ndrf_sop_dispatch.chemical_hazard}</p>
+                    </div>
+                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                      <p className="text-zinc-500 font-medium mb-1">Confidence</p>
+                      <p className="text-zinc-200 font-semibold">{activeScenario.ndrf_sop_dispatch.cnn_confidence_pct}%</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-[11px] text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/50 mt-3">
+                    Jurisdiction: <span className="text-zinc-300 font-medium">{activeScenario.ndrf_sop_dispatch.jurisdiction}</span>
+                  </p>
                 </div>
-              )}
-            </motion.div>
+              </motion.div>
+            )}
             
             {/* Actionable Notes / Demo Logs */}
             {activeScenario?.demo_notes && (
