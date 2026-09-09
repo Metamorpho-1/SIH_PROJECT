@@ -1,5 +1,4 @@
 import React from 'react';
-import { Building2, AlertCircle } from 'lucide-react';
 
 export interface CorporateFacility {
   key: string;
@@ -99,12 +98,8 @@ export const FacilitySelector: React.FC<FacilitySelectorProps> = ({
   disabled,
 }) => {
   return (
-    <div className="flex items-center space-x-2 overflow-x-auto py-1 px-1 scrollbar-thin">
-      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 shrink-0 flex items-center gap-1">
-        <Building2 className="w-3.5 h-3.5 text-zinc-500" />
-        <span>Corporate Target:</span>
-      </span>
-      <div className="flex space-x-1.5 shrink-0">
+    <div className="flex items-center space-x-4 overflow-x-auto py-1 px-1 scrollbar-hide">
+      <div className="flex space-x-1 shrink-0">
         {CORPORATE_FACILITIES.map((fac) => {
           const isSelected = fac.key === selectedKey;
           return (
@@ -112,19 +107,14 @@ export const FacilitySelector: React.FC<FacilitySelectorProps> = ({
               key={fac.key}
               disabled={disabled}
               onClick={() => onSelect(fac)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center space-x-2 active:scale-95 ${
+              className={`px-4 py-1.5 rounded-full text-[10px] font-medium tracking-wide whitespace-nowrap transition-all flex items-center space-x-2 outline-none ${
                 isSelected
                   ? fac.isDisaster
-                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 shadow-sm'
-                    : 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
-                  : 'bg-zinc-900/50 text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:bg-zinc-800/80'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : 'bg-white/10 text-white border border-white/10'
+                  : 'bg-transparent text-zinc-500 hover:text-zinc-300 border border-transparent hover:bg-white/5'
               }`}
             >
-              {fac.isDisaster ? (
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-              ) : (
-                <Building2 className={`w-3.5 h-3.5 ${isSelected ? 'text-zinc-400' : 'text-zinc-600'}`} />
-              )}
               <span>{fac.name}</span>
             </button>
           );

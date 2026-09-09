@@ -6,12 +6,10 @@ import {
   Sun,
   Activity,
   MapPin,
-  TrendingUp,
   Volume2,
   VolumeX,
   FileText,
   Wifi,
-  Wind,
   AlertTriangle
 } from 'lucide-react';
 import { TacticalMap } from './components/TacticalMap';
@@ -417,66 +415,63 @@ export default function App() {
       />
 
       {/* Sleek Enterprise Top Navigation */}
-      <header className="h-16 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl px-6 flex items-center justify-between z-20 shrink-0">
+      <header className="h-16 border-b border-white/5 bg-black/40 backdrop-blur-2xl px-8 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center justify-center p-1 bg-zinc-900 border border-zinc-700/50 rounded-xl shadow-sm overflow-hidden h-10 w-10">
-            <img src="/vulcan-logo.png" alt="Vulcan Grid Logo" className="w-full h-full object-contain" />
+          <div className="flex items-center justify-center p-1 bg-zinc-900 border border-white/5 rounded-lg overflow-hidden h-9 w-9">
+            <img src="/vulcan-logo.png" alt="Vulcan Grid Logo" className="w-full h-full object-contain grayscale opacity-80" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-sm font-medium tracking-[0.2em] text-zinc-100 flex items-center gap-3">
               VULCAN GRID
-              <span className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 bg-zinc-800/80 text-zinc-400 rounded-full">
-                Intelligence
-              </span>
             </h1>
-            <p className="text-xs text-zinc-500 font-medium flex items-center gap-2 mt-0.5">
-              <span>Operational Spatio-Temporal System</span>
-              <span className="text-zinc-700">•</span>
-              <span className="text-zinc-400">{currentTimeUTC}</span>
+            <p className="text-[10px] text-zinc-500 font-medium tracking-widest mt-0.5 uppercase">
+              {currentTimeUTC}
             </p>
           </div>
         </div>
 
           {/* Minimalist Controls */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <button
               onClick={fetchLiveFirmsData}
               disabled={loadingFirms}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium transition duration-200 border ${
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-[11px] uppercase tracking-wider font-medium transition-all duration-300 border ${
                 showFirms 
-                  ? 'bg-orange-950/30 text-orange-500 border-orange-900/50' 
-                  : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-zinc-800'
+                  ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
+                  : 'bg-transparent hover:bg-white/5 text-zinc-400 border-transparent hover:border-white/10'
               }`}
             >
-              <Satellite className={`w-3.5 h-3.5 ${loadingFirms ? 'animate-spin' : showFirms ? 'animate-pulse' : ''}`} />
-              <span>{loadingFirms ? 'Fetching...' : showFirms ? 'NASA FIRMS Live' : 'NASA FIRMS (India)'}</span>
+              <Satellite className={`w-3 h-3 ${loadingFirms ? 'animate-spin' : showFirms ? 'animate-pulse' : ''}`} />
+              <span>{loadingFirms ? 'Fetching...' : showFirms ? 'FIRMS Live' : 'Live Map'}</span>
             </button>
+
+            <div className="w-px h-4 bg-white/10 mx-2" />
 
             <button
               onClick={() => setWsConnected(!wsConnected)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium transition duration-200 border ${
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-[11px] uppercase tracking-wider font-medium transition-all duration-300 border ${
                 wsConnected 
-                  ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50' 
-                  : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-zinc-800'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                  : 'bg-transparent hover:bg-white/5 text-zinc-400 border-transparent hover:border-white/10'
               }`}
             >
-              <Wifi className={`w-3.5 h-3.5 ${wsConnected ? 'animate-pulse' : ''}`} />
-              <span>{wsConnected ? 'Live Stream Active' : 'Start Feed'}</span>
+              <Wifi className={`w-3 h-3 ${wsConnected ? 'animate-pulse' : ''}`} />
+              <span>{wsConnected ? 'Connected' : 'Connect'}</span>
             </button>
 
             <button
               onClick={() => triggerBaselineProof(selectedFacility.key)}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition duration-200"
+              className="flex items-center space-x-2 px-3 py-1.5 rounded-md text-[11px] uppercase tracking-wider font-medium bg-transparent hover:bg-white/5 text-zinc-300 border border-transparent hover:border-white/10 transition-all duration-300 ml-2"
             >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Baseline Proof</span>
+              <Activity className="w-3 h-3" />
+              <span>Baseline</span>
             </button>
             
             <button
               onClick={() => triggerIncidentInjection(selectedFacility.key)}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium bg-gradient-to-b from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white border border-red-500/20 shadow-sm transition duration-200"
+              className="flex items-center space-x-2 px-4 py-1.5 ml-2 rounded-md text-[11px] uppercase tracking-wider font-semibold bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 hover:border-red-500 transition-all duration-300"
             >
               <Zap className="w-3.5 h-3.5" />
               <span>Inject Incident</span>
@@ -555,29 +550,28 @@ export default function App() {
             {/* P2: What-If Digital Twin Sandbox Overlay */}
             {isExplosion && (
               <div className="absolute top-6 left-6 z-[500] w-80 bg-zinc-900/80 backdrop-blur-xl border border-zinc-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                <div className="bg-zinc-800/40 px-4 py-3 border-b border-zinc-700/50 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-200 flex items-center gap-2">
-                    <Wind className="w-4 h-4 text-zinc-400" />
-                    Interactive Sandbox
+                <div className="bg-black/40 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold tracking-[0.15em] text-zinc-300 uppercase flex items-center gap-2">
+                    Parameters
                   </span>
                   <button 
                     onClick={() => setWhatIfMode(!whatIfMode)}
-                    className={`text-[10px] font-medium px-2.5 py-1 rounded-md transition ${whatIfMode ? 'bg-zinc-200 text-zinc-900' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
+                    className={`text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded transition ${whatIfMode ? 'bg-white/10 text-white' : 'bg-transparent text-zinc-500 border border-white/10'}`}
                   >
-                    {whatIfMode ? 'Active' : 'Enable'}
+                    {whatIfMode ? 'Active' : 'Edit'}
                   </button>
                 </div>
                 
                 {whatIfMode && (
-                  <div className="p-4 space-y-4 text-xs font-medium">
-                    <div className="space-y-1.5">
-                      <label className="text-zinc-400 flex justify-between">
-                        <span>Chemical Profile</span>
+                  <div className="p-4 space-y-5 text-[11px] font-medium bg-black/60 backdrop-blur-md">
+                    <div className="space-y-2">
+                      <label className="text-zinc-500 uppercase tracking-wider flex justify-between">
+                        <span>Profile</span>
                       </label>
                       <select 
                         value={whatIfParams.chemical_type}
                         onChange={(e) => setWhatIfParams(p => ({ ...p, chemical_type: e.target.value }))}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 outline-none focus:border-zinc-600 transition"
+                        className="w-full bg-white/5 border border-white/10 rounded px-3 py-1.5 text-zinc-200 outline-none focus:border-white/20 transition appearance-none"
                       >
                         {(activeScenario?.available_chemicals || ['GENERIC']).map(chem => (
                           <option key={chem} value={chem}>{chem.replace(/_/g, ' ')}</option>
@@ -637,14 +631,11 @@ export default function App() {
         {/* Right Half: Intelligence Panel */}
         <aside className="w-[520px] bg-zinc-950/80 backdrop-blur-3xl flex flex-col overflow-y-auto shrink-0 border-l border-zinc-800/40 z-10 scrollbar-thin">
           {/* Intelligence Panel Header */}
-          <div className="px-6 py-5 bg-zinc-950/90 border-b border-zinc-800/40 sticky top-0 z-10 backdrop-blur-md">
-            <h2 className="text-sm font-semibold text-zinc-100 flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-zinc-400" />
-              <span>Spatio-Temporal Telemetry</span>
+          <div className="px-8 py-6 bg-black/60 border-b border-white/5 sticky top-0 z-10 backdrop-blur-2xl">
+            <h2 className="text-[10px] font-semibold tracking-[0.2em] uppercase text-zinc-300 flex items-center space-x-3">
+              <Activity className="w-3 h-3 text-zinc-500" />
+              <span>Telemetry Analysis</span>
             </h2>
-            <p className="text-[11px] font-medium text-zinc-500 mt-1">
-              Primary Detection Node • VIIRS 375m & Sentinel-2
-            </p>
           </div>
 
           <motion.div 
@@ -655,16 +646,15 @@ export default function App() {
               hidden: { opacity: 0 },
               visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
             }}
-            className="p-6 space-y-6"
+            className="p-8 space-y-8"
           >
             {/* Section 1: Tier 1 Triage */}
             <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  Tier 1: Triage Decision
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                  01 // Primary Scan
                 </h3>
-                <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
                   {activeScenario?.triage_result.inference_time_ms || 0.008} ms
                 </span>
               </div>
@@ -760,18 +750,15 @@ export default function App() {
               )}
             </motion.div>
 
-            <div className="h-px bg-zinc-800/50 w-full" />
-
             {/* Section 2: Tier 2 CNN Verification */}
             {currentTimelineStage >= 1 && (
-              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Satellite className="w-3.5 h-3.5" />
-                    Tier 2: Spectral Validation
+              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4 pt-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                    02 // Spectral Validation
                   </h3>
-                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                    Sentinel-2 SWIR
+                  <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
+                    Sentinel-2
                   </span>
                 </div>
 
@@ -908,11 +895,9 @@ export default function App() {
             {/* Section 3: Plume & Evacuation SOP */}
             {currentTimelineStage >= 3 && activeScenario?.ndrf_sop_dispatch && (
               <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4 pt-6">
-                <div className="h-px bg-zinc-800/50 w-full mb-6" />
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Wind className="w-3.5 h-3.5" />
-                    Tier 3: Dispersion & SOP
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                    03 // Dispersion & Response
                   </h3>
                   <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                     Gaussian Plume
@@ -969,23 +954,19 @@ export default function App() {
         </aside>
       </div>
 
-      {/* Elegant Bottom Status Ticker */}
-      <footer className="h-8 border-t border-zinc-800/60 bg-zinc-950 px-6 flex items-center justify-between text-[10px] font-medium text-zinc-500 shrink-0">
-        <div className="flex items-center space-x-6">
+      {/* Sleek Minimalist Footer */}
+      <footer className="h-8 border-t border-white/5 bg-black/60 backdrop-blur-md flex items-center justify-between px-8 text-[9px] font-medium tracking-[0.1em] text-zinc-600 uppercase shrink-0">
+        <div className="flex space-x-6">
           <span className="flex items-center space-x-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-            <span>National Corpus: 50,000 Trained Points (RIL, IOCL, ONGC, SAIL)</span>
+            <span className="w-1 h-1 rounded-full bg-emerald-500/50 inline-block"></span>
+            <span>System Nominal</span>
           </span>
           <span className="flex items-center space-x-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-            <span>Tier 1 Primary Scan (F1: 0.9999 | 0.176 ms)</span>
-          </span>
-          <span className="flex items-center space-x-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>
-            <span>Tier 2 Sentinel-2 Sensor: Active</span>
+            <span className="w-1 h-1 rounded-full bg-zinc-700 inline-block"></span>
+            <span>Latency: 12ms</span>
           </span>
         </div>
-        <span className="text-zinc-600">VULCAN GRID v2.0.0 (NTRO SIH-26162)</span>
+        <span>VULCAN GRID // 2026</span>
       </footer>
     </div>
   );
