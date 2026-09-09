@@ -2,15 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 export const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
-  const [displayedText, setDisplayedText] = useState('');
+  const [length, setLength] = useState(0);
 
   useEffect(() => {
-    setDisplayedText('');
-    let i = 0;
+    setLength(0);
     const interval = setInterval(() => {
-      setDisplayedText((prev) => prev + text.charAt(i));
-      i++;
-      if (i >= text.length) clearInterval(interval);
+      setLength((prev) => {
+        if (prev >= text.length) {
+          clearInterval(interval);
+          return prev;
+        }
+        return prev + 1;
+      });
     }, 15); // Fast typing speed
 
     return () => clearInterval(interval);
@@ -18,7 +21,7 @@ export const TypewriterText: React.FC<{ text: string }> = ({ text }) => {
 
   return (
     <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      {displayedText}
+      {text.substring(0, length)}
       <motion.span
         animate={{ opacity: [1, 0] }}
         transition={{ repeat: Infinity, duration: 0.8 }}

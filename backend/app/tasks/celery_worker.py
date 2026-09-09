@@ -107,15 +107,8 @@ def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, A
             "chemical_hazard": chem_profile.get("hazard", "Unknown"),
             "total_population_at_risk": pop_impact.get("total_estimated_exposed", 0)
         },
-        "demo_notes": f"ASYNC PROCESSING: Tier 1 Triage completed instantly. Tier 2 Celery Task confirmed {verified_area_m2:,.0f} m² combustion via CNN. Weather: {wind_speed} m/s @ {wind_direction}°."
+        "demo_notes": f"ASYNC PROCESSING: Tier 1 Triage completed instantly. Tier 2 Node confirmed {verified_area_m2:,.0f} m² combustion via Spectral Analysis. Weather: {wind_speed} m/s @ {wind_direction}°."
     }
-    
-    # Run async function in sync Celery context
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        # Using a new loop or nest_asyncio isn't ideal here, 
-        # but in Celery standard synchronous workers, there's no running event loop.
-        pass
     
     # Easiest way in synchronous Celery without monkey-patching:
     asyncio.run(_publish_to_redis("tactical_alerts", final_payload))

@@ -113,5 +113,5 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
         "triage_result": classification,
         "xai_feature_attributions": xai_attributions,
         "live_weather": weather,
-        "demo_notes": f"Tier 1 LightGBM classified in {classification['inference_time_ms']} ms. Heavy CNN Verification delegated to Celery Workers."
+        "demo_notes": f"Tier 1 Primary Scan classified in {classification['inference_time_ms']} ms. Spectral Analysis validation delegated to Distributed Compute Nodes."
     }
