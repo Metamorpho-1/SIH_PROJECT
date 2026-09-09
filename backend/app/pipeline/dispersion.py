@@ -51,74 +51,143 @@ def gaussian_ground_concentration(
     concentration = (q_emission_rate_g_s / (math.pi * u * sigma_y * sigma_z)) * lateral_term * vertical_term
     return concentration
 
+def estimate_emission_rate_q(frp_mw: float, cnn_fire_area_m2: float = 0.0) -> float:
+    """
+    Computes dynamic toxic chemical / smoke emission rate Q (in grams/second)
+    coupled directly with NASA FIRMS Fire Radiative Power and CNN combustion footprint.
+    Q = (alpha * FRP_MW) + (beta * Area_m2)
+    """
+    frp_component = max(0.0, float(frp_mw)) * 8.5
+    area_component = max(0.0, float(cnn_fire_area_m2)) * 0.08
+    total_q = max(50.0, frp_component + area_component)
+    return round(total_q, 2)
+
+def generate_hazard_polygon(
+    origin_lat: float,
+    origin_lon: float,
+    wind_direction_deg: float,
+    max_dist_km: float,
+    stability_class: str = 'D',
+    lateral_factor: float = 2.15
+) -> List[List[float]]:
+    """Generates a single closed polygon coordinate array for a given downwind distance."""
+    travel_heading_deg = (wind_direction_deg + 180.0) % 360.0
+    travel_heading_rad = math.radians(travel_heading_deg)
+
+    steps = 9
+    distances_km = np.linspace(0.15, max_dist_km, steps).tolist()
+    left_boundary = []
+    right_boundary = []
+
+    km_per_lat = 111.32
+    km_per_lon = 111.32 * math.cos(math.radians(origin_lat))
+
+    for dist_km in distances_km:
+        sigma_y, _ = calculate_dispersion_sigmas(dist_km, stability_class)
+        plume_width_km = (lateral_factor * sigma_y) / 1000.0
+
+        center_dx_km = dist_km * math.sin(travel_heading_rad)
+        center_dy_km = dist_km * math.cos(travel_heading_rad)
+
+        perp_dx_km = math.cos(travel_heading_rad)
+        perp_dy_km = -math.sin(travel_heading_rad)
+
+        l_x = center_dx_km - (plume_width_km * perp_dx_km)
+        l_y = center_dy_km - (plume_width_km * perp_dy_km)
+        left_boundary.append([origin_lon + (l_x / km_per_lon), origin_lat + (l_y / km_per_lat)])
+
+        r_x = center_dx_km + (plume_width_km * perp_dx_km)
+        r_y = center_dy_km + (plume_width_km * perp_dy_km)
+        right_boundary.append([origin_lon + (r_x / km_per_lon), origin_lat + (r_y / km_per_lat)])
+
+    polygon_coords = [[origin_lon, origin_lat]] + left_boundary + list(reversed(right_boundary)) + [[origin_lon, origin_lat]]
+    return polygon_coords
+
 def generate_plume_hazard_cone(
     origin_lat: float,
     origin_lon: float,
     wind_speed_m_s: float = 4.5,
-    wind_direction_deg: float = 240.0, # Meteorological direction wind is coming FROM
+    wind_direction_deg: float = 240.0,
     emission_rate_g_s: float = 500.0,
     max_downwind_km: float = 12.0,
-    stability_class: str = 'D'
+    stability_class: str = 'D',
+    cnn_fire_area_m2: float = 0.0,
+    frp_mw: float = 0.0
 ) -> Dict[str, Any]:
     """
-    Computes geographical polygon contours representing downwind toxic concentration zones
-    for rendering in Deck.gl / Mapbox.
+    Computes a multi-tiered GeoJSON FeatureCollection with 3 concentric hazard contours:
+      - Zone 1 (Red): Immediate Lethal Zone (IDLH)
+      - Zone 2 (Orange): Toxic Evacuation Zone (ERPG-2)
+      - Zone 3 (Yellow): Precautionary Advisory Zone (ERPG-1)
     """
-    # Downwind vector direction (wind blows toward direction = wind_dir + 180 mod 360)
+    # Recalculate dynamic emission rate Q if FRP or CNN area provided
+    if frp_mw > 0 or cnn_fire_area_m2 > 0:
+        emission_rate_g_s = estimate_emission_rate_q(frp_mw, cnn_fire_area_m2)
+
     travel_heading_deg = (wind_direction_deg + 180.0) % 360.0
-    travel_heading_rad = math.radians(travel_heading_deg)
-    
-    distances_km = [0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, max_downwind_km]
-    left_boundary = []
-    right_boundary = []
-    
-    # 1 deg latitude ~ 111.32 km, 1 deg longitude ~ 111.32 * cos(lat) km
-    km_per_lat = 111.32
-    km_per_lon = 111.32 * math.cos(math.radians(origin_lat))
-    
-    for dist_km in distances_km:
-        sigma_y, _ = calculate_dispersion_sigmas(dist_km, stability_class)
-        # Plume half-width at 2.15 sigma (10% of centerline concentration)
-        plume_width_km = (2.15 * sigma_y) / 1000.0
-        
-        # Centerline point
-        center_dx_km = dist_km * math.sin(travel_heading_rad)
-        center_dy_km = dist_km * math.cos(travel_heading_rad)
-        
-        # Perpendicular normal vector for width
-        perp_dx_km = math.cos(travel_heading_rad)
-        perp_dy_km = -math.sin(travel_heading_rad)
-        
-        # Left boundary coordinate
-        l_x = center_dx_km - (plume_width_km * perp_dx_km)
-        l_y = center_dy_km - (plume_width_km * perp_dy_km)
-        left_lat = origin_lat + (l_y / km_per_lat)
-        left_lon = origin_lon + (l_x / km_per_lon)
-        left_boundary.append([left_lon, left_lat])
-        
-        # Right boundary coordinate
-        r_x = center_dx_km + (plume_width_km * perp_dx_km)
-        r_y = center_dy_km + (plume_width_km * perp_dy_km)
-        right_lat = origin_lat + (r_y / km_per_lat)
-        right_lon = origin_lon + (r_x / km_per_lon)
-        right_boundary.append([right_lon, right_lat])
-    
-    # Construct complete closed GeoJSON Polygon
-    polygon_coords = [[origin_lon, origin_lat]] + left_boundary + list(reversed(right_boundary)) + [[origin_lon, origin_lat]]
-    
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [polygon_coords]
+
+    # Scale zone reaches based on emission strength Q
+    scale = math.sqrt(max(100.0, emission_rate_g_s) / 500.0)
+    z1_reach_km = round(min(max_downwind_km * 0.35 * scale, max_downwind_km * 0.4), 2)
+    z2_reach_km = round(min(max_downwind_km * 0.70 * scale, max_downwind_km * 0.75), 2)
+    z3_reach_km = round(min(max_downwind_km * scale, max_downwind_km * 1.25), 2)
+
+    z1_coords = generate_hazard_polygon(origin_lat, origin_lon, wind_direction_deg, z1_reach_km, stability_class, 1.8)
+    z2_coords = generate_hazard_polygon(origin_lat, origin_lon, wind_direction_deg, z2_reach_km, stability_class, 2.15)
+    z3_coords = generate_hazard_polygon(origin_lat, origin_lon, wind_direction_deg, z3_reach_km, stability_class, 2.5)
+
+    features = [
+        {
+            "type": "Feature",
+            "properties": {
+                "zone_id": 3,
+                "zone_name": "Zone 3 - Precautionary Advisory",
+                "color": "#eab308", # Yellow
+                "fill_color": [234, 179, 8, 50],
+                "reach_km": z3_reach_km,
+                "advisory": "Shelter indoors, close windows, turn off external HVAC intakes."
+            },
+            "geometry": {"type": "Polygon", "coordinates": [z3_coords]}
         },
+        {
+            "type": "Feature",
+            "properties": {
+                "zone_id": 2,
+                "zone_name": "Zone 2 - Toxic Evacuation Corridor",
+                "color": "#f97316", # Orange
+                "fill_color": [249, 115, 22, 90],
+                "reach_km": z2_reach_km,
+                "advisory": "Mandatory civilian evacuation downwind perpendicular to wind heading."
+            },
+            "geometry": {"type": "Polygon", "coordinates": [z2_coords]}
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "zone_id": 1,
+                "zone_name": "Zone 1 - Immediate Lethal Threat",
+                "color": "#ef4444", # Red
+                "fill_color": [239, 68, 68, 140],
+                "reach_km": z1_reach_km,
+                "advisory": "CRITICAL HAZARD: Immediate respiratory threat; first responders require full SCBA."
+            },
+            "geometry": {"type": "Polygon", "coordinates": [z1_coords]}
+        }
+    ]
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
         "properties": {
             "origin": [origin_lon, origin_lat],
             "wind_speed_m_s": wind_speed_m_s,
             "wind_direction_deg": wind_direction_deg,
             "travel_heading_deg": travel_heading_deg,
-            "max_distance_km": max_downwind_km,
+            "emission_rate_g_s": emission_rate_g_s,
             "stability_class": stability_class,
-            "emission_rate_g_s": emission_rate_g_s
+            "cnn_fire_area_m2": cnn_fire_area_m2,
+            "frp_mw": frp_mw,
+            "max_evacuation_radius_km": z2_reach_km
         }
     }
+

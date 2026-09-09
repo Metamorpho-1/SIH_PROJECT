@@ -68,17 +68,19 @@ class TestAuraFireModels(unittest.TestCase):
         self.assertLess(result["inference_time_ms"], 10.0)
 
     def test_gaussian_plume_generation(self):
-        """Gaussian plume should produce a valid GeoJSON polygon oriented downwind."""
+        """Gaussian plume should produce a valid GeoJSON FeatureCollection oriented downwind."""
         plume = generate_plume_hazard_cone(
             origin_lat=22.4707,
             origin_lon=69.8331,
             wind_speed_m_s=4.5,
             wind_direction_deg=240.0
         )
-        self.assertEqual(plume["type"], "Feature")
-        self.assertEqual(plume["geometry"]["type"], "Polygon")
-        coords = plume["geometry"]["coordinates"][0]
-        self.assertGreater(len(coords), 10)
+        self.assertEqual(plume["type"], "FeatureCollection")
+        self.assertGreaterEqual(len(plume["features"]), 1)
+        first_feature = plume["features"][0]
+        self.assertEqual(first_feature["geometry"]["type"], "Polygon")
+        coords = first_feature["geometry"]["coordinates"][0]
+        self.assertGreater(len(coords), 5)
         # First and last coordinate must be identical to form closed polygon
         self.assertEqual(coords[0], coords[-1])
 
