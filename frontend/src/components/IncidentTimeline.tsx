@@ -17,7 +17,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
       step: 0,
       time: 'T - 0m',
       title: 'Routine Flaring',
-      desc: 'NASA VIIRS Overpass: Equilibrium baseline (24.5 MW), alarm suppressed in 0.005 ms.',
+      desc: 'NASA VIIRS Overpass: Equilibrium baseline (24.5 MW).',
       icon: CheckCircle,
       color: 'text-emerald-400',
       border: 'border-emerald-500',
@@ -26,8 +26,8 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
     {
       step: 1,
       time: 'T + 2m',
-      title: '120MW Explosion',
-      desc: 'Catastrophic thermal excursion: FRP jumps to 145 MW (TAI = +31.7σ), Class 1 Critical Alert.',
+      title: '120MW Anomaly',
+      desc: 'Thermal anomaly: FRP jumps to 145 MW, Critical Alert.',
       icon: AlertTriangle,
       color: 'text-red-400',
       border: 'border-red-500',
@@ -36,8 +36,8 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
     {
       step: 2,
       time: 'T + 8m',
-      title: 'Sentinel-2 CNN',
-      desc: 'High-res SWIR verification: 8,400 m² combustion footprint confirmed, P = 99.5%.',
+      title: 'Sentinel-2 Validation',
+      desc: 'Spectral validation: 8,400 m² thermal footprint confirmed.',
       icon: Satellite,
       color: 'text-purple-400',
       border: 'border-purple-500',
@@ -47,7 +47,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
       step: 3,
       time: 'T + 15m',
       title: 'Plume & Evacuation',
-      desc: 'Gaussian plume coupled with CNN fire area: 10.5 km toxic corridor dispatched to NDRF.',
+      desc: 'Gaussian plume coupled with thermal area: 10.5 km exposure corridor dispatched to responders.',
       icon: Wind,
       color: 'text-amber-400',
       border: 'border-amber-500',
@@ -58,8 +58,8 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
   return (
     <div className="w-full bg-zinc-900/90 border-t border-zinc-800 px-4 py-2 flex items-center justify-between font-mono text-xs z-10 shrink-0">
       <div className="flex items-center space-x-2 text-zinc-400 shrink-0 mr-4">
-        <Clock className="w-4 h-4 text-cyan-400" />
-        <span className="font-bold text-zinc-200 uppercase text-[11px]">DISASTER LIFECYCLE REPLAY:</span>
+        <Clock className="w-4 h-4 text-zinc-500" />
+        <span className="font-bold text-zinc-300 uppercase text-[11px]">EVENT LIFECYCLE REPLAY:</span>
       </div>
 
       <div className="flex-1 grid grid-cols-4 gap-2">

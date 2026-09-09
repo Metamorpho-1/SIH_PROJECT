@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
   Satellite, 
-  Layers, 
   Zap, 
   Crosshair, 
   Sun,
@@ -341,7 +340,7 @@ export default function App() {
           class_tag: "CLASS 0",
           category: "Specular Optical Glare (False Alarm Dismissed)",
           action: "DISMISS_FALSE_ALARM",
-          action_details: "Optical glare rejected by Stage 3 Multi-Spectral CNN. Positive NBR confirms no combustion core.",
+          action_details: "Optical glare rejected by Stage 3 Spectral Analysis. Positive NBR confirms no combustion core.",
           severity: "NORMAL",
           confidence: 0.94,
           inference_time_ms: 0.007,
@@ -349,7 +348,7 @@ export default function App() {
         },
         cnn_verification: data.cnn_verification,
         satellite_imagery: data.satellite_imagery,
-        demo_notes: "High solar / roof reflection triggered thermal threshold, but Stage 3 Multi-Spectral CNN successfully verified positive NBR and dismissed the false alarm."
+        demo_notes: "High solar / roof reflection triggered thermal threshold, but Stage 3 Spectral Analysis successfully verified positive NBR and dismissed the false alarm."
       });
       playConfirmTone();
     } catch (err) {
@@ -396,12 +395,12 @@ export default function App() {
       {/* Sleek Enterprise Top Navigation */}
       <header className="h-16 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl px-6 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center space-x-4">
-          <div className="p-2 bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/50 rounded-xl text-zinc-300 shadow-sm">
-            <Layers className="w-5 h-5" />
+          <div className="flex items-center justify-center p-1 bg-zinc-900 border border-zinc-700/50 rounded-xl shadow-sm overflow-hidden h-10 w-10">
+            <img src="/vulcan-logo.png" alt="Vulcan Grid Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-white flex items-center gap-3">
-              AURA-Fire Platform
+              VULCAN GRID
               <span className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 bg-zinc-800/80 text-zinc-400 rounded-full">
                 Intelligence
               </span>
@@ -606,7 +605,7 @@ export default function App() {
               <span>Spatio-Temporal Telemetry</span>
             </h2>
             <p className="text-[11px] font-medium text-zinc-500 mt-1">
-              National AI Triage System • VIIRS 375m & Sentinel-2
+              Primary Detection Node • VIIRS 375m & Sentinel-2
             </p>
           </div>
 
@@ -700,7 +699,7 @@ export default function App() {
               {activeScenario?.xai_feature_attributions && (
                 <div className="pt-3">
                   <span className="text-[11px] font-medium text-zinc-400 block mb-2">
-                    SHAP Explainability Audit
+                    Factor Contribution
                   </span>
                   <div className="grid grid-cols-1 gap-1.5 border border-zinc-800/50 rounded-xl bg-zinc-900/20 p-3 text-[10px] font-medium">
                     {activeScenario.xai_feature_attributions.map((attr, idx) => (
@@ -730,7 +729,7 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Satellite className="w-3.5 h-3.5" />
-                  Tier 2: CNN Verification
+                  Tier 2: Spectral Validation
                 </h3>
                 <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                   Sentinel-2 SWIR
@@ -786,7 +785,7 @@ export default function App() {
                             : 'text-zinc-500 hover:text-zinc-300'
                         }`}
                       >
-                        CNN Mask
+                        Combustion Mask
                       </button>
                     </div>
                   </div>
@@ -802,7 +801,7 @@ export default function App() {
                       className="w-full h-full object-cover opacity-90"
                     />
 
-                    {/* CNN Mask Overlay */}
+                    {/* Combustion Mask Overlay */}
                     {satelliteViewMode === 'mask' && activeScenario.cnn_verification && (
                       <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
                         <div className="text-center p-4 rounded-xl bg-zinc-950/90 border border-indigo-500/30 text-indigo-200 shadow-xl">
@@ -829,7 +828,7 @@ export default function App() {
                     <div className="space-y-2.5 pt-2 text-xs">
                       <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/60 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 font-medium">CNN Classification:</span>
+                          <span className="text-zinc-400 font-medium">Validation Class:</span>
                           <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'}`}>
                             {activeScenario.cnn_verification.prediction_class.replace(/_/g, ' ')}
                           </span>
@@ -891,14 +890,14 @@ export default function App() {
           </span>
           <span className="flex items-center space-x-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-            <span>Tier 1 LightGBM (F1: 0.9999 | 0.176 ms)</span>
+            <span>Tier 1 Primary Scan (F1: 0.9999 | 0.176 ms)</span>
           </span>
           <span className="flex items-center space-x-2">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>
-            <span>Tier 2 Sentinel-2 CNN: Active</span>
+            <span>Tier 2 Sentinel-2 Sensor: Active</span>
           </span>
         </div>
-        <span className="text-zinc-600">AURA-Fire Platform v2.0.0 (NTRO SIH-26162)</span>
+        <span className="text-zinc-600">VULCAN GRID v2.0.0 (NTRO SIH-26162)</span>
       </footer>
     </div>
   );
