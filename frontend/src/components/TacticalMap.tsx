@@ -163,16 +163,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       targetMarkerRef.current.remove();
     }
 
-    const activeMarker = L.circleMarker(targetCoords, {
-      radius: isExplosion ? 14 : 9,
-      fillColor: isExplosion ? '#ef4444' : '#10b981',
-      color: '#ffffff',
-      weight: 2.5,
-      opacity: 1.0,
-      fillOpacity: 0.9,
+    const customIcon = L.divIcon({
+      className: isExplosion ? 'leaflet-pulse-icon' : 'leaflet-pulse-icon-safe',
+      iconSize: isExplosion ? [30, 30] : [20, 20],
+      html: '',
+    });
+
+    const activeMarker = L.marker([targetLat, targetLon], {
+      icon: customIcon,
     }).addTo(map);
 
-    targetMarkerRef.current = activeMarker;
+    targetMarkerRef.current = activeMarker as any;
 
     // Uber H3 Res-8 Hexagon Boundary (~500m radius)
     const hexRadiusMeters = 520;
@@ -223,7 +224,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-zinc-950">
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div ref={mapContainerRef} className="w-full h-full z-0 map-cinematic-mask" />
 
       {/* Top Left: Operational Status */}
       <div className="absolute top-4 left-4 z-[400] flex flex-col space-y-2 pointer-events-none">

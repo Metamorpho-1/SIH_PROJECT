@@ -19,6 +19,9 @@ import { TelemetryChart } from './components/TelemetryChart';
 import { FacilitySelector, CorporateFacility, CORPORATE_FACILITIES } from './components/FacilitySelector';
 import { IncidentTimeline } from './components/IncidentTimeline';
 import { playRadarPing, playRedAlert, playConfirmTone, setAudioMuted } from './services/audioFx';
+import { motion } from 'framer-motion';
+import { AnimatedCounter } from './components/AnimatedCounter';
+import { TypewriterText } from './components/TypewriterText';
 
 interface SimulationResult {
   scenario: string;
@@ -375,8 +378,21 @@ export default function App() {
     ? [activeScenario.coordinates.lat, activeScenario.coordinates.lon]
     : selectedFacility.coords;
 
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden select-none">
+    <div 
+      className="flex flex-col h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden select-none bg-grain"
+      onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+    >
+      {/* Dynamic Background Spotlight */}
+      <div 
+        className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,255,255,0.03), transparent 40%)`
+        }}
+      />
+
       {/* Sleek Enterprise Top Navigation */}
       <header className="h-16 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl px-6 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center space-x-4">
@@ -582,9 +598,9 @@ export default function App() {
         </div>
 
         {/* Right Half: Intelligence Panel */}
-        <aside className="w-[520px] bg-zinc-950 flex flex-col overflow-y-auto shrink-0">
+        <aside className="w-[520px] bg-zinc-950/80 backdrop-blur-3xl flex flex-col overflow-y-auto shrink-0 border-l border-zinc-800/40 z-10 scrollbar-thin">
           {/* Intelligence Panel Header */}
-          <div className="px-6 py-5 bg-zinc-950 border-b border-zinc-800/40 sticky top-0 z-10">
+          <div className="px-6 py-5 bg-zinc-950/90 border-b border-zinc-800/40 sticky top-0 z-10 backdrop-blur-md">
             <h2 className="text-sm font-semibold text-zinc-100 flex items-center space-x-2">
               <Activity className="w-4 h-4 text-zinc-400" />
               <span>Spatio-Temporal Telemetry</span>
@@ -594,9 +610,18 @@ export default function App() {
             </p>
           </div>
 
-          <div className="p-6 space-y-6">
+          <motion.div 
+            key={selectedFacility.key}
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+            }}
+            className="p-6 space-y-6"
+          >
             {/* Section 1: Tier 1 Triage */}
-            <div className="space-y-4">
+            <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -633,21 +658,27 @@ export default function App() {
               <div className="grid grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex flex-col justify-center items-center">
                   <span className="text-zinc-500 mb-1 text-[10px] font-medium">FRP (MW)</span>
-                  <span className="text-sm font-semibold text-zinc-200">{activeScenario?.telemetry.frp}</span>
+                  <span className="text-sm font-semibold text-zinc-200">
+                    <AnimatedCounter value={activeScenario?.telemetry.frp || 0} decimals={1} />
+                  </span>
                 </div>
                 <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex flex-col justify-center items-center">
                   <span className="text-zinc-500 mb-1 text-[10px] font-medium">TAI Z-Score</span>
                   <span className={`text-sm font-semibold ${isExplosion ? 'text-red-400' : 'text-zinc-200'}`}>
-                    +{activeScenario?.triage_result.features.tai.toFixed(1)}σ
+                    +<AnimatedCounter value={activeScenario?.triage_result.features.tai || 0} decimals={1} />σ
                   </span>
                 </div>
                 <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex flex-col justify-center items-center">
                   <span className="text-zinc-500 mb-1 text-[10px] font-medium">SPF</span>
-                  <span className="text-sm font-semibold text-zinc-200">{activeScenario?.triage_result.features.spf}</span>
+                  <span className="text-sm font-semibold text-zinc-200">
+                    <AnimatedCounter value={activeScenario?.triage_result.features.spf || 0} decimals={2} />
+                  </span>
                 </div>
                 <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex flex-col justify-center items-center">
                   <span className="text-zinc-500 mb-1 text-[10px] font-medium">Band I4</span>
-                  <span className="text-sm font-semibold text-zinc-200">{activeScenario?.telemetry.bright_ti4} K</span>
+                  <span className="text-sm font-semibold text-zinc-200">
+                    <AnimatedCounter value={activeScenario?.telemetry.bright_ti4 || 0} decimals={1} /> K
+                  </span>
                 </div>
               </div>
 
@@ -690,12 +721,12 @@ export default function App() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             <div className="h-px bg-zinc-800/50 w-full" />
 
             {/* Section 2: Tier 2 CNN Verification */}
-            <div className="space-y-4">
+            <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Satellite className="w-3.5 h-3.5" />
@@ -833,21 +864,21 @@ export default function App() {
                   <p className="text-xs text-zinc-500 font-medium">Awaiting High-Resolution Satellite Pass...</p>
                 </div>
               )}
-            </div>
+            </motion.div>
             
             {/* Actionable Notes / Demo Logs */}
             {activeScenario?.demo_notes && (
-              <>
-                <div className="h-px bg-zinc-800/50 w-full" />
+              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+                <div className="h-px bg-zinc-800/50 w-full mb-6" />
                 <div className="bg-zinc-900/40 p-4 rounded-xl border border-zinc-800/60 border-l-4 border-l-indigo-500 shadow-sm">
                   <h4 className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider mb-1">Analyst Notes</h4>
                   <p className="text-xs text-zinc-300 leading-relaxed font-medium">
-                    {activeScenario.demo_notes}
+                    <TypewriterText text={activeScenario.demo_notes} />
                   </p>
                 </div>
-              </>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </aside>
       </div>
 
