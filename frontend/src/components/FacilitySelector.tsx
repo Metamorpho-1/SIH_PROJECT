@@ -100,7 +100,7 @@ export const FacilitySelector: React.FC<FacilitySelectorProps> = ({
 }) => {
   return (
     <div className="flex items-center space-x-2 overflow-x-auto py-1 px-1 scrollbar-thin">
-      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
+      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 shrink-0 flex items-center gap-1">
         <Building2 className="w-3.5 h-3.5 text-blue-400" />
         <span>Corporate Target:</span>
       </span>
@@ -117,13 +117,13 @@ export const FacilitySelector: React.FC<FacilitySelectorProps> = ({
                   ? fac.isDisaster
                     ? 'bg-red-950 text-red-300 font-bold border border-red-700 shadow-md shadow-red-950/40'
                     : 'bg-blue-950 text-blue-300 font-bold border border-blue-700 shadow-md shadow-blue-950/40'
-                  : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700'
+                  : 'bg-zinc-900/90 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700'
               }`}
             >
               {fac.isDisaster ? (
                 <AlertCircle className="w-3 h-3 text-red-400" />
               ) : (
-                <Flame className={`w-3 h-3 ${isSelected ? 'text-amber-400' : 'text-slate-500'}`} />
+                <Flame className={`w-3 h-3 ${isSelected ? 'text-amber-400' : 'text-zinc-500'}`} />
               )}
               <span>{fac.name}</span>
             </button>

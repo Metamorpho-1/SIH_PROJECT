@@ -102,7 +102,7 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ isExplosion, fac
   };
 
   return (
-    <div className="w-full h-44 bg-slate-950 p-2 rounded-lg border border-slate-800">
+    <div className="w-full h-44 bg-zinc-950 p-2 rounded-lg border border-zinc-800">
       <Line data={data} options={options} />
     </div>
   );

@@ -56,10 +56,10 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
   ];
 
   return (
-    <div className="w-full bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex items-center justify-between font-mono text-xs z-10 shrink-0">
-      <div className="flex items-center space-x-2 text-slate-400 shrink-0 mr-4">
+    <div className="w-full bg-zinc-900/90 border-t border-zinc-800 px-4 py-2 flex items-center justify-between font-mono text-xs z-10 shrink-0">
+      <div className="flex items-center space-x-2 text-zinc-400 shrink-0 mr-4">
         <Clock className="w-4 h-4 text-cyan-400" />
-        <span className="font-bold text-slate-200 uppercase text-[11px]">DISASTER LIFECYCLE REPLAY:</span>
+        <span className="font-bold text-zinc-200 uppercase text-[11px]">DISASTER LIFECYCLE REPLAY:</span>
       </div>
 
       <div className="flex-1 grid grid-cols-4 gap-2">
@@ -77,19 +77,19 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
                 isCurrent
                   ? `${st.activeBg} ${st.border} shadow-lg`
                   : isActive
-                    ? 'bg-slate-950/80 border-slate-700 text-slate-300'
-                    : 'bg-slate-950/40 border-slate-800/80 text-slate-500 hover:text-slate-400'
+                    ? 'bg-zinc-950/80 border-zinc-700 text-zinc-300'
+                    : 'bg-zinc-950/40 border-zinc-800/80 text-zinc-500 hover:text-zinc-400'
               }`}
             >
-              <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isCurrent ? st.color : 'text-slate-500'}`} />
+              <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isCurrent ? st.color : 'text-zinc-500'}`} />
               <div className="overflow-hidden">
                 <div className="flex items-center space-x-1.5">
-                  <span className={`font-bold text-[10px] ${isCurrent ? 'text-white' : 'text-slate-400'}`}>
+                  <span className={`font-bold text-[10px] ${isCurrent ? 'text-white' : 'text-zinc-400'}`}>
                     {st.time}
                   </span>
-                  <span className="text-[10px] font-semibold truncate text-slate-200">{st.title}</span>
+                  <span className="text-[10px] font-semibold truncate text-zinc-200">{st.title}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 truncate mt-0.5">{st.desc}</p>
+                <p className="text-[10px] text-zinc-400 truncate mt-0.5">{st.desc}</p>
               </div>
             </button>
           );

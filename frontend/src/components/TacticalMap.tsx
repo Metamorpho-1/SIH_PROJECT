@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Eye, Satellite, Radio, Compass } from 'lucide-react';
+import { Eye, Satellite, Compass } from 'lucide-react';
 import { CORPORATE_FACILITIES, CorporateFacility } from './FacilitySelector';
 
 interface TacticalMapProps {
@@ -52,7 +52,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const plumeLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const targetMarkerRef = useRef<L.CircleMarker | null>(null);
   const [basemapMode, setBasemapMode] = useState<'satellite' | 'dark'>('satellite');
-  const [isScanning, setIsScanning] = useState(true);
+
 
   // Initialize Map
   useEffect(() => {
@@ -143,12 +143,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     }
   };
 
-  // Fly to target on coordinate change & update polygons
+  // 1. Camera Control: Fly to target only when coordinates or explosion status changes
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     map.flyTo(targetCoords, isExplosion ? 11 : 12, { duration: 1.2 });
+  }, [targetCoords, isExplosion]);
+
+  // 2. Data Layers: Update markers, hexes, and plumes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
     if (targetMarkerRef.current) {
       targetMarkerRef.current.remove();
@@ -169,8 +175,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     const hexRadiusMeters = 520;
     const hexCircle = L.circle(targetCoords, {
       radius: hexRadiusMeters,
-      color: isExplosion ? '#ef4444' : '#06b6d4',
-      fillColor: isExplosion ? '#ef4444' : '#06b6d4',
+      color: isExplosion ? '#ef4444' : '#0ea5e9',
+      fillColor: isExplosion ? '#ef4444' : '#0ea5e9',
       fillOpacity: isExplosion ? 0.25 : 0.15,
       weight: 2,
       dashArray: '5, 5',
@@ -189,15 +195,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           const poly = L.polygon(leafletCoords, {
             color: feat.properties.color,
             fillColor: feat.properties.color,
-            fillOpacity: feat.properties.zone_id === 1 ? 0.50 : feat.properties.zone_id === 2 ? 0.32 : 0.18,
-            weight: 2,
+            fillOpacity: feat.properties.zone_id === 1 ? 0.40 : feat.properties.zone_id === 2 ? 0.25 : 0.12,
+            weight: 1.5,
           });
 
           poly.bindTooltip(
-            `<div style="font-family:monospace;font-size:11px;padding:2px;">
+            `<div style="font-family:inherit;font-size:12px;padding:4px;">
               <b style="color:${feat.properties.color}">${feat.properties.zone_name}</b><br>
-              <b>Radius:</b> ${feat.properties.reach_km} km<br>
-              <span style="color:#64748b">${feat.properties.advisory}</span>
+              <span style="color:#71717a">Radius: ${feat.properties.reach_km} km</span><br>
+              <span style="color:#a1a1aa">${feat.properties.advisory}</span>
             </div>`,
             { sticky: true }
           );
@@ -210,91 +216,68 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     return () => {
       hexCircle.remove();
     };
-  }, [targetCoords, targetName, isExplosion, plumeData]);
+  }, [targetCoords, isExplosion, plumeData]);
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      <div ref={mapContainerRef} className="w-full h-full z-0 bg-slate-950" />
+    <div className="relative w-full h-full overflow-hidden bg-zinc-950">
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Animated Simulated NASA FIRMS Satellite Sweep Beam */}
-      {isScanning && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-[300]">
-          <div className="w-full h-24 bg-gradient-to-b from-transparent via-cyan-500/15 to-transparent border-b border-cyan-400/40 animate-radar-sweep shadow-[0_0_25px_rgba(6,182,212,0.2)]"></div>
-        </div>
-      )}
-
-      {/* Top Left: Operational HUD Badges */}
-      <div className="absolute top-3 left-3 z-[400] flex flex-col space-y-2 pointer-events-none">
-        <div className="bg-slate-900/90 border border-slate-700/80 backdrop-blur px-3 py-1.5 rounded-lg shadow-2xl flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-          <span className="text-xs font-mono font-bold text-slate-100 flex items-center gap-1.5">
-            <Radio className="w-3.5 h-3.5 text-cyan-400" />
-            <span>NASA FIRMS VIIRS 375m ORBITAL RECON</span>
+      {/* Top Left: Operational Status */}
+      <div className="absolute top-4 left-4 z-[400] flex flex-col space-y-2 pointer-events-none">
+        <div className="bg-zinc-900/80 border border-zinc-800/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-sm flex items-center space-x-3">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-        </div>
-
-        <div className="bg-slate-950/85 border border-slate-800 backdrop-blur text-[11px] font-mono text-slate-300 px-3 py-1 rounded-md shadow-md">
-          {basemapMode === 'satellite' ? '🛰️ ESRI World High-Res Satellite | Zero Watermarks' : '⚡ Cyber Tactical Dark Mode'}
+          <span className="text-sm font-medium text-zinc-200">
+            System Active
+          </span>
         </div>
       </div>
 
-      {/* Top Right: Basemap Selector & Satellite Beam Toggle */}
-      <div className="absolute top-3 right-14 z-[400] flex items-center space-x-1.5 bg-slate-900/90 border border-slate-700/80 backdrop-blur p-1 rounded-lg shadow-xl">
+      {/* Top Right: Basemap Selector */}
+      <div className="absolute top-4 right-4 z-[400] flex items-center space-x-2 bg-zinc-900/80 border border-zinc-800/80 backdrop-blur-md p-1.5 rounded-2xl shadow-sm">
         <button
           onClick={() => toggleBasemap('satellite')}
-          className={`px-2.5 py-1 rounded text-xs font-mono flex items-center space-x-1 transition ${
-            basemapMode === 'satellite' ? 'bg-cyan-950 text-cyan-300 font-bold border border-cyan-700' : 'text-slate-400 hover:text-white'
+          className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center space-x-1.5 transition ${
+            basemapMode === 'satellite' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Switch to Real Optical Satellite Imagery"
         >
-          <Satellite className="w-3.5 h-3.5" />
-          <span>Satellite Recon</span>
+          <Satellite className="w-4 h-4" />
+          <span>Satellite</span>
         </button>
         <button
           onClick={() => toggleBasemap('dark')}
-          className={`px-2.5 py-1 rounded text-xs font-mono flex items-center space-x-1 transition ${
-            basemapMode === 'dark' ? 'bg-blue-950 text-blue-300 font-bold border border-blue-700' : 'text-slate-400 hover:text-white'
+          className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center space-x-1.5 transition ${
+            basemapMode === 'dark' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Switch to Inverted Tactical Dark Tiles"
         >
-          <Eye className="w-3.5 h-3.5" />
-          <span>Cyber Dark</span>
-        </button>
-        <button
-          onClick={() => setIsScanning(!isScanning)}
-          className={`px-2 py-1 rounded text-xs font-mono transition ${
-            isScanning ? 'text-cyan-400 bg-slate-800' : 'text-slate-500'
-          }`}
-          title="Toggle Satellite Radar Sweep Scanline"
-        >
-          Scan Beam
+          <Eye className="w-4 h-4" />
+          <span>Minimal Dark</span>
         </button>
       </div>
 
       {/* Bottom Left: Wind Vector Compass HUD */}
       {isExplosion && plumeData && (
-        <div className="absolute bottom-4 left-4 z-[400] bg-slate-900/95 border border-red-800/80 backdrop-blur p-3 rounded-xl shadow-2xl font-mono text-xs text-slate-200 pointer-events-none space-y-1.5 max-w-xs">
-          <div className="flex items-center justify-between text-red-400 font-bold">
-            <span className="flex items-center space-x-1.5">
-              <Compass className="w-4 h-4 text-red-400 animate-spin" />
-              <span>10m Wind Vector:</span>
+        <div className="absolute bottom-6 left-6 z-[400] bg-zinc-900/90 border border-zinc-800/80 backdrop-blur-xl p-4 rounded-3xl shadow-xl text-sm text-zinc-300 pointer-events-none space-y-2 max-w-sm">
+          <div className="flex items-center justify-between text-zinc-100">
+            <span className="flex items-center space-x-2 font-medium">
+              <Compass className="w-4 h-4 text-zinc-400" />
+              <span>Wind Conditions</span>
             </span>
-            <span className="text-white">
-              {liveWeather?.wind_speed_10m ?? plumeData.properties?.wind_speed_m_s ?? 5.2} m/s @ {liveWeather?.wind_direction_10m ?? plumeData.properties?.wind_direction_deg ?? 235}°
+            <span className="font-mono bg-zinc-800 px-2 py-0.5 rounded-lg text-xs">
+              {liveWeather?.wind_speed_10m ?? plumeData.properties?.wind_speed_m_s ?? 5.2} m/s
             </span>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Active toxic chemical plume dispersion propagating downwind. Stability Class: {liveWeather?.computed_stability_class ?? plumeData.properties?.stability_class ?? 'C'}
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Plume dispersion based on {liveWeather?.wind_direction_10m ?? plumeData.properties?.wind_direction_deg ?? 235}° wind direction and Stability Class {liveWeather?.computed_stability_class ?? plumeData.properties?.stability_class ?? 'C'}.
           </p>
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
+          <div className="flex flex-col gap-1.5 pt-2 text-[11px] font-medium">
             {plumeData.features?.map((feat) => (
-              <span key={feat.properties.zone_id} className="px-1.5 py-0.5 rounded border" style={{
-                backgroundColor: feat.properties.color + '40', // 25% opacity background
-                color: feat.properties.color,
-                borderColor: feat.properties.color
-              }}>
-                Zone {feat.properties.zone_id}: {feat.properties.reach_km} km
-              </span>
+              <div key={feat.properties.zone_id} className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: feat.properties.color }}></div>
+                <span className="text-zinc-300">{feat.properties.zone_name}: {feat.properties.reach_km} km radius</span>
+              </div>
             ))}
           </div>
         </div>
