@@ -15,14 +15,14 @@ from app.ml.cnn_model import cnn_verifier
 router = APIRouter(prefix="/simulation", tags=["Judging Demonstration Replay"])
 
 @router.get("/baseline-proof")
-async def get_jamnagar_baseline_proof() -> Dict[str, Any]:
+async def get_jamnagar_baseline_proof(facility: str = "jamnagar_refinery") -> Dict[str, Any]:
     """
     Step 1 of Judge Demo:
-    Simulates standard operational telemetry over Jamnagar Refinery.
+    Simulates standard operational telemetry over specified facility (default: Reliance Jamnagar).
     Confirms routine flaring is suppressed without noisy false alarms.
     Runs CNN verification on routine flare patch to demonstrate zero false alarms.
     """
-    telemetry = get_simulated_telemetry(facility_key="jamnagar_refinery", inject_spike=False)
+    telemetry = get_simulated_telemetry(facility_key=facility, inject_spike=False)
     classification = triage_classifier.predict(telemetry)
     
     # Run Stage 3 CNN on routine flare scene
@@ -43,19 +43,19 @@ async def get_jamnagar_baseline_proof() -> Dict[str, Any]:
             "patch_dimensions": flare_patch["patch_dimensions"],
             "gsd_meters": flare_patch["gsd_meters"]
         },
-        "demo_notes": "5 active refinery flares detected. TAI is within normal baseline (<=2.5σ). CNN confirms localized routine flaring with alarm suppressed."
+        "demo_notes": f"Active thermal emissions detected at {telemetry['facility_name']}. TAI is within baseline (<=2.5σ). CNN confirms routine industrial flaring with alarm suppressed."
     }
 
 @router.post("/inject-explosion")
-async def inject_jamnagar_incident() -> Dict[str, Any]:
+async def inject_jamnagar_incident(facility: str = "jamnagar_refinery") -> Dict[str, Any]:
     """
     Step 2-5 of Judge Demo:
-    Injects a 120 MW thermal explosion spike into Jamnagar Refinery telemetry.
+    Injects a 120 MW thermal explosion spike into telemetry.
     Sub-second LightGBM classifier triggers Class 1 alert.
     Celery triggers Sentinel-2 STAC fetch + AuraFireMultiSpectralCNN inference.
     CNN confirms 8,400 m² combustion footprint and couples with Gaussian plume model.
     """
-    telemetry = get_simulated_telemetry(facility_key="jamnagar_refinery", inject_spike=True)
+    telemetry = get_simulated_telemetry(facility_key=facility, inject_spike=True)
     classification = triage_classifier.predict(telemetry)
     
     # Stage 3: Deep-Learning Multi-Spectral CNN Verification

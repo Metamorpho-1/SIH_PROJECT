@@ -6,16 +6,19 @@ import {
   Play, 
   Zap, 
   Crosshair, 
-  ShieldCheck, 
   Sun,
   Activity,
   MapPin,
   TrendingUp,
-  AlertOctagon
+  Volume2,
+  VolumeX,
+  Radio
 } from 'lucide-react';
-
 import { TacticalMap } from './components/TacticalMap';
 import { TelemetryChart } from './components/TelemetryChart';
+import { FacilitySelector, CorporateFacility, CORPORATE_FACILITIES } from './components/FacilitySelector';
+import { IncidentTimeline } from './components/IncidentTimeline';
+import { playRadarPing, playRedAlert, playConfirmTone, setAudioMuted } from './services/audioFx';
 
 interface SimulationResult {
   scenario: string;
@@ -86,55 +89,65 @@ const API_BASE = 'http://localhost:8000/api/v1';
 
 export default function App() {
   const [activeScenario, setActiveScenario] = useState<SimulationResult | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<CorporateFacility>(CORPORATE_FACILITIES[0]);
   const [loading, setLoading] = useState(false);
   const [satelliteViewMode, setSatelliteViewMode] = useState<'swir' | 'rgb' | 'mask'>('swir');
+  const [muted, setMuted] = useState(false);
+  const [currentTimelineStage, setCurrentTimelineStage] = useState(0);
+  const [currentTimeUTC, setCurrentTimeUTC] = useState('');
 
-  // Load default baseline scenario on initial mount so screen is never empty
+  // Live ticking UTC mission elapsed clock
   useEffect(() => {
-    triggerBaselineProof();
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTimeUTC(now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const triggerBaselineProof = async () => {
+  // Load default baseline on startup
+  useEffect(() => {
+    triggerBaselineProof(CORPORATE_FACILITIES[0].key);
+  }, []);
+
+  const toggleAudio = () => {
+    const newMuted = !muted;
+    setMuted(newMuted);
+    setAudioMuted(newMuted);
+  };
+
+  const triggerBaselineProof = async (facilityKey: string = selectedFacility.key) => {
     setLoading(true);
+    playRadarPing();
+    setCurrentTimelineStage(0);
     try {
-      const res = await fetch(`${API_BASE}/simulation/baseline-proof`);
+      const res = await fetch(`${API_BASE}/simulation/baseline-proof?facility=${facilityKey}`);
       const data = await res.json();
       setActiveScenario(data);
+      playConfirmTone();
     } catch (err) {
-      console.error('API error, loading fallback baseline:', err);
-
-      // Robust offline fallback
-      setActiveScenario({
-        scenario: "BASELINE_OPERATIONAL_PROOF",
-        facility: "Reliance Jamnagar Refinery Complex",
-        coordinates: { lat: 22.4707, lon: 69.8331 },
-        telemetry: { frp: 25.7, bright_ti4: 328.0, latitude: 22.4707, longitude: 69.8331 },
-        triage_result: {
-          class_id: 0,
-          class_tag: "CLASS 0",
-          category: "Routine Industrial Activity",
-          action: "SUPPRESS_ALARM",
-          action_details: "Suppress alarm; update rolling baseline distribution.",
-          severity: "NORMAL",
-          confidence: 0.96,
-          inference_time_ms: 0.005,
-          features: { frp: 25.7, tai: 0.32, spf: 0.65, bright_ti4: 328.0 }
-        },
-        demo_notes: "5 active refinery flares detected. TAI is within normal baseline (<=2.5σ). CNN confirms localized routine flaring with alarm suppressed."
-      });
+      console.error('API baseline fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const triggerIncidentInjection = async () => {
+  const triggerIncidentInjection = async (facilityKey: string = selectedFacility.key) => {
     setLoading(true);
+    playRedAlert();
+    setCurrentTimelineStage(1);
     try {
-      const res = await fetch(`${API_BASE}/simulation/inject-explosion`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}`, { method: 'POST' });
       const data = await res.json();
       setActiveScenario(data);
+      // Advance timeline automatically to step 2 after 1.5s
+      setTimeout(() => setCurrentTimelineStage(2), 1500);
+      // Advance to step 3 after 3.5s
+      setTimeout(() => setCurrentTimelineStage(3), 3500);
     } catch (err) {
-      console.error('API error on incident injection:', err);
+      console.error('API explosion injection error:', err);
     } finally {
       setLoading(false);
     }
@@ -142,6 +155,8 @@ export default function App() {
 
   const triggerFalseGlareTest = async () => {
     setLoading(true);
+    playRadarPing();
+    setCurrentTimelineStage(0);
     try {
       const res = await fetch(`${API_BASE}/verification/cnn-verify`, {
         method: 'POST',
@@ -157,9 +172,9 @@ export default function App() {
         triage_result: {
           class_id: 0,
           class_tag: "CLASS 0",
-          category: "Specular Optical Glare (False Alarm)",
+          category: "Specular Optical Glare (False Alarm Dismissed)",
           action: "DISMISS_FALSE_ALARM",
-          action_details: "Optical glare rejected by Stage 3 Multi-Spectral CNN.",
+          action_details: "Optical glare rejected by Stage 3 Multi-Spectral CNN. Positive NBR confirms no combustion core.",
           severity: "NORMAL",
           confidence: 0.94,
           inference_time_ms: 0.007,
@@ -169,6 +184,7 @@ export default function App() {
         satellite_imagery: data.satellite_imagery,
         demo_notes: "High solar / roof reflection triggered thermal threshold, but Stage 3 Multi-Spectral CNN successfully verified positive NBR and dismissed the false alarm."
       });
+      playConfirmTone();
     } catch (err) {
       console.error(err);
     } finally {
@@ -176,15 +192,29 @@ export default function App() {
     }
   };
 
+  const handleFacilitySelect = (facility: CorporateFacility) => {
+    setSelectedFacility(facility);
+    triggerBaselineProof(facility.key);
+  };
+
+  const handleTimelineSelect = (stage: number) => {
+    setCurrentTimelineStage(stage);
+    if (stage === 0) {
+      triggerBaselineProof(selectedFacility.key);
+    } else if (stage >= 1) {
+      triggerIncidentInjection(selectedFacility.key);
+    }
+  };
+
   const isExplosion = activeScenario?.triage_result?.class_id === 1;
   const currentCoords: [number, number] = activeScenario?.coordinates
     ? [activeScenario.coordinates.lat, activeScenario.coordinates.lon]
-    : [22.4707, 69.8331];
+    : selectedFacility.coords;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      {/* Tactical Top Navigation Bar */}
-      <header className="h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur px-6 flex items-center justify-between z-20 shrink-0">
+    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 font-sans overflow-hidden select-none">
+      {/* Tactical Top Navigation Bar (War Room Style) */}
+      <header className="h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur px-5 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center space-x-3.5">
           <div className="p-2.5 bg-red-600/20 border border-red-500/40 rounded-xl text-red-400 shadow-inner">
             <Flame className="w-6 h-6 animate-pulse" />
@@ -198,32 +228,34 @@ export default function App() {
                 AURA-Fire
                 <span className="text-xs font-mono font-normal px-2.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
-                  Dual-Tier AI Active
+                  WAR ROOM ONLINE
                 </span>
               </h1>
             </div>
-            <p className="text-xs text-slate-400 font-mono">
-              Operational Spatio-Temporal Intelligence & Satellite Verification System
+            <p className="text-xs text-slate-400 font-mono flex items-center gap-2">
+              <span>Operational Spatio-Temporal Intelligence System</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-cyan-400">{currentTimeUTC}</span>
             </p>
           </div>
         </div>
 
-        {/* Demo Simulation Controls */}
-        <div className="flex items-center space-x-3">
+        {/* Demo Simulation Controls & Audio Toggle */}
+        <div className="flex items-center space-x-2.5">
           <button
-            onClick={triggerBaselineProof}
+            onClick={() => triggerBaselineProof(selectedFacility.key)}
             disabled={loading}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-mono font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow transition active:scale-95"
-            title="Step 1: Demonstrate zero false alarms over 5 active Jamnagar gas flares"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow transition active:scale-95"
+            title="Step 1: Baseline Proof (Zero false alarms on routine flaring)"
           >
             <Play className="w-3.5 h-3.5 text-emerald-400" />
             <span>1. Baseline Proof</span>
           </button>
           
           <button
-            onClick={triggerIncidentInjection}
+            onClick={() => triggerIncidentInjection(selectedFacility.key)}
             disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-mono font-bold bg-red-950 hover:bg-red-900 text-red-200 border border-red-700 shadow-lg shadow-red-950/40 transition active:scale-95"
+            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-red-950 hover:bg-red-900 text-red-200 border border-red-700 shadow-lg shadow-red-950/40 transition active:scale-95"
             title="Step 2: Inject sudden 120MW industrial thermal explosion"
           >
             <Zap className="w-4 h-4 text-red-400 animate-bounce" />
@@ -233,75 +265,85 @@ export default function App() {
           <button
             onClick={triggerFalseGlareTest}
             disabled={loading}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-mono font-bold bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-800 shadow transition active:scale-95"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-800 shadow transition active:scale-95"
             title="Step 3: Demonstrate CNN rejection of specular optical glare"
           >
             <Sun className="w-3.5 h-3.5 text-amber-400" />
-            <span>3. Test Solar Glare Rejection</span>
+            <span>3. Test Solar Glare</span>
+          </button>
+
+          {/* Audio FX Mute / Unmute Toggle */}
+          <button
+            onClick={toggleAudio}
+            className={`p-2 rounded-lg border transition ${
+              muted 
+                ? 'bg-slate-900 text-slate-500 border-slate-800' 
+                : 'bg-slate-800 text-cyan-400 border-slate-700 shadow-sm'
+            }`}
+            title={muted ? 'Unmute Tactical Audio FX' : 'Mute Tactical Audio FX'}
+          >
+            {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
       </header>
+
+      {/* Corporate Facility Switcher Ribbon */}
+      <div className="bg-slate-900/80 border-b border-slate-800/80 px-4 py-1.5 shrink-0">
+        <FacilitySelector
+          selectedKey={selectedFacility.key}
+          onSelect={handleFacilitySelect}
+          disabled={loading}
+        />
+      </div>
 
       {/* Main Split Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Half: Tactical Map Canvas */}
         <div className="flex-1 relative flex flex-col border-r border-slate-800">
-          {/* Map Header Bar */}
-          <div className="h-10 px-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between z-10 font-mono text-xs text-slate-300">
+          {/* Map Sub-Header Bar */}
+          <div className="h-9 px-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between z-10 font-mono text-xs text-slate-300">
             <div className="flex items-center space-x-2">
               <Layers className="w-4 h-4 text-cyan-400" />
-              <span className="font-bold">TACTICAL GEOINT MAP</span>
-              <span className="text-slate-500">|</span>
-              <span className="text-slate-400">Uber H3 Res-8 Hexagonal Discrete Grid</span>
+              <span className="font-bold text-white uppercase">{selectedFacility.company}</span>
+              <span className="text-slate-500">•</span>
+              <span className="text-slate-400">{selectedFacility.name} ({selectedFacility.state})</span>
             </div>
             <div className="flex items-center space-x-2">
               <MapPin className="w-3.5 h-3.5 text-red-400" />
-              <span className="text-white font-bold">{activeScenario?.facility || 'Jamnagar Refinery'}</span>
+              <span className="text-cyan-300 font-bold">{currentCoords[0].toFixed(4)}°N, {currentCoords[1].toFixed(4)}°E</span>
             </div>
           </div>
 
-          {/* Interactive Leaflet Dark Map */}
+          {/* High-Resolution Satellite & Tactical Dark Map */}
           <div className="flex-1 relative">
             <TacticalMap
               targetCoords={currentCoords}
-              targetName={activeScenario?.facility || 'Jamnagar Refinery'}
+              targetName={selectedFacility.name}
               isExplosion={isExplosion}
               plumeData={activeScenario?.plume_dispersion || null}
+              onSelectFacility={handleFacilitySelect}
             />
           </div>
 
-          {/* Map Operational Alert Banner */}
-          <div className={`p-3 border-t text-xs font-mono flex items-center justify-between ${
-            isExplosion 
-              ? 'bg-red-950/90 border-red-800 text-red-200' 
-              : 'bg-slate-900/90 border-slate-800 text-slate-300'
-          }`}>
-            <div className="flex items-center space-x-2">
-              {isExplosion ? (
-                <AlertOctagon className="w-4 h-4 text-red-400 animate-pulse shrink-0" />
-              ) : (
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              )}
-              <span><b>STATUS:</b> {activeScenario?.demo_notes}</span>
-            </div>
-            {isExplosion && activeScenario?.ndrf_sop_dispatch && (
-              <span className="px-2 py-0.5 rounded bg-red-600 text-white font-bold uppercase text-[10px]">
-                NDRF EVACUATION ZONE: {activeScenario.ndrf_sop_dispatch.evacuation_zone_km} KM
-              </span>
-            )}
-          </div>
+          {/* Incident Timeline Scrubber */}
+          <IncidentTimeline
+            currentStage={currentTimelineStage}
+            onSelectStage={handleTimelineSelect}
+            disabled={loading}
+          />
         </div>
 
         {/* Right Half: Tactical Triage & Deep-Learning Intelligence Panel */}
-        <aside className="w-[480px] bg-slate-950 flex flex-col border-l border-slate-800 overflow-y-auto shrink-0 divide-y divide-slate-800/80">
+        <aside className="w-[490px] bg-slate-950 flex flex-col border-l border-slate-800 overflow-y-auto shrink-0 divide-y divide-slate-800/80">
           {/* Panel Header */}
-          <div className="p-4 bg-slate-900/60 flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+          <div className="p-3.5 bg-slate-900/70 flex items-center justify-between">
+            <span className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
               <Activity className="w-4 h-4 text-blue-400" />
-              <span>Multi-Tier AI Triage Telemetry</span>
+              <span>National AI Triage Telemetry</span>
             </span>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
-              NASA FIRMS VIIRS 375m
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 flex items-center gap-1">
+              <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
+              <span>VIIRS 375m Telemetry</span>
             </span>
           </div>
 
@@ -369,7 +411,7 @@ export default function App() {
               </span>
               <TelemetryChart 
                 isExplosion={isExplosion} 
-                facilityName={activeScenario?.facility || 'Jamnagar Refinery'} 
+                facilityName={selectedFacility.name} 
               />
             </div>
           </div>
@@ -504,23 +546,23 @@ export default function App() {
         </aside>
       </div>
 
-      {/* Bottom Tactical Status Bar */}
+      {/* Bottom Status Ticker */}
       <footer className="h-8 border-t border-slate-800 bg-slate-950 px-5 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
         <div className="flex items-center space-x-5">
           <span className="flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            <span>PostGIS 16 (OSM Spatial Join: Active)</span>
+            <span>National Corpus: 50,000 Trained Points (RIL, IOCL, ONGC, SAIL)</span>
           </span>
           <span className="flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-            <span>Stage 1 LightGBM (Sub-5ms Inference: Armed)</span>
+            <span>Tier 1 LightGBM (F1: 0.9999 | 0.176 ms)</span>
           </span>
           <span className="flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
-            <span>Stage 3 Multi-Spectral CNN (Sentinel-2: Armed)</span>
+            <span>Tier 2 Sentinel-2 CNN: Active</span>
           </span>
         </div>
-        <span className="text-slate-500">AURA-Fire Engine v1.2.0 | NTRO SIH-26162</span>
+        <span className="text-slate-500">AURA-Fire Engine v2.0.0 (NTRO SIH-26162)</span>
       </footer>
     </div>
   );
