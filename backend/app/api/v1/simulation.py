@@ -94,6 +94,7 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
         chemical_type = facility_chems[0] if facility_chems else "GENERIC"
 
     # Dispatch to Celery queue!
+    from app.tasks.celery_app import celery_app
     from app.tasks.celery_worker import verify_incident_async
     verify_incident_async.delay(
         telemetry=telemetry,
