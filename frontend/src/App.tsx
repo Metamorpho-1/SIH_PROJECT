@@ -183,6 +183,9 @@ export default function App() {
         playRedAlert();
         setActiveScenario(data as SimulationResult);
         setCurrentTimelineStage(2);
+        setTimeout(() => {
+          setCurrentTimelineStage(3);
+        }, 2000); // 2 second delay so user sees CNN results before plume
       } else if (data.type === 'THERMAL_SCAN' && !activeScenario?.triage_result || (activeScenario?.triage_result?.class_id === 0)) {
         // Just update baseline if we're not currently looking at an explosion
         // (In a real app, this would update a ticker, but we can set it as active baseline)
@@ -234,13 +237,6 @@ export default function App() {
     playRedAlert();
     setCurrentTimelineStage(1);
     
-    if (wsConnected && wsSocket) {
-      // Trigger via WebSocket if connected
-      wsSocket.send(JSON.stringify({ cmd: 'inject_incident', facility: facilityKey }));
-      setTimeout(() => setLoading(false), 500);
-      return;
-    }
-
     try {
       const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}`, { method: 'POST' });
       const data = await res.json();
@@ -252,8 +248,6 @@ export default function App() {
           wind_direction_deg: data.live_weather.wind_direction_10m || 235
         }));
       }
-      setTimeout(() => setCurrentTimelineStage(2), 1500);
-      setTimeout(() => setCurrentTimelineStage(3), 3500);
     } catch (err) {
       console.error('API explosion injection error:', err);
     } finally {
@@ -364,11 +358,17 @@ export default function App() {
   };
 
   const handleTimelineSelect = (stage: number) => {
-    setCurrentTimelineStage(stage);
     if (stage === 0) {
+      setCurrentTimelineStage(0);
       triggerBaselineProof(selectedFacility.key);
     } else if (stage >= 1) {
-      triggerIncidentInjection(selectedFacility.key);
+      if (currentTimelineStage === 0) {
+        triggerIncidentInjection(selectedFacility.key);
+      } else {
+        if (activeScenario?.scenario !== "INCIDENT_SIMULATION_EXPLOSION_QUEUED") {
+          setCurrentTimelineStage(stage);
+        }
+      }
     }
   };
 
