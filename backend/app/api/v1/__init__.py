@@ -8,6 +8,7 @@ from app.api.v1.websocket import router as websocket_router
 from app.api.v1.dossier_api import router as dossier_router
 from app.api.v1.whatif import router as whatif_router
 from app.api.v1.weather_api import router as weather_router
+from app.api.v1.live_firms import router as live_firms_router
 
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(telemetry_router)
@@ -19,5 +20,6 @@ api_v1_router.include_router(websocket_router)
 api_v1_router.include_router(dossier_router)
 api_v1_router.include_router(whatif_router)
 api_v1_router.include_router(weather_router)
+api_v1_router.include_router(live_firms_router, prefix="/simulation")
 
 

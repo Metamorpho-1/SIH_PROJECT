@@ -124,6 +124,9 @@ export default function App() {
   const [activeScenario, setActiveScenario] = useState<SimulationResult | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<CorporateFacility>(CORPORATE_FACILITIES[0]);
   const [loading, setLoading] = useState(false);
+  const [showFirms, setShowFirms] = useState(false);
+  const [loadingFirms, setLoadingFirms] = useState(false);
+  const [liveFirmsData, setLiveFirmsData] = useState<any[]>([]);
   const [satelliteViewMode, setSatelliteViewMode] = useState<'swir' | 'rgb' | 'mask'>('swir');
   const [muted, setMuted] = useState(false);
   const [currentTimelineStage, setCurrentTimelineStage] = useState(0);
@@ -378,6 +381,26 @@ export default function App() {
     ? [activeScenario.coordinates.lat, activeScenario.coordinates.lon]
     : selectedFacility.coords;
 
+  const fetchLiveFirmsData = async () => {
+    if (showFirms) {
+      setShowFirms(false);
+      setLiveFirmsData([]);
+      return;
+    }
+    
+    setLoadingFirms(true);
+    try {
+      const res = await fetch(`${API_BASE}/simulation/live-firms`);
+      const data = await res.json();
+      setLiveFirmsData(data);
+      setShowFirms(true);
+    } catch (err) {
+      console.error('Failed to fetch live FIRMS data:', err);
+    } finally {
+      setLoadingFirms(false);
+    }
+  };
+
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   return (
@@ -416,6 +439,19 @@ export default function App() {
 
           {/* Minimalist Controls */}
           <div className="flex items-center space-x-3">
+            <button
+              onClick={fetchLiveFirmsData}
+              disabled={loadingFirms}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium transition duration-200 border ${
+                showFirms 
+                  ? 'bg-orange-950/30 text-orange-500 border-orange-900/50' 
+                  : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-zinc-800'
+              }`}
+            >
+              <Satellite className={`w-3.5 h-3.5 ${loadingFirms ? 'animate-spin' : showFirms ? 'animate-pulse' : ''}`} />
+              <span>{loadingFirms ? 'Fetching...' : showFirms ? 'NASA FIRMS Live' : 'NASA FIRMS (India)'}</span>
+            </button>
+
             <button
               onClick={() => setWsConnected(!wsConnected)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium transition duration-200 border ${
@@ -512,6 +548,7 @@ export default function App() {
               isExplosion={isExplosion}
               plumeData={currentTimelineStage >= 3 ? activeScenario?.plume_dispersion : null}
               liveWeather={activeScenario?.live_weather || null}
+              liveFirmsData={liveFirmsData}
               onSelectFacility={handleFacilitySelect}
             />
 

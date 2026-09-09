@@ -9,25 +9,9 @@ interface TacticalMapProps {
   targetName: string;
   isExplosion: boolean;
   plumeData?: {
-    features: Array<{
-      properties: {
-        zone_id: number;
-        zone_name: string;
-        color: string;
-        reach_km: number;
-        advisory: string;
-      };
-      geometry: {
-        coordinates: number[][][];
-      };
-    }>;
-    properties?: {
-      emission_rate_g_s: number;
-      max_evacuation_radius_km: number;
-      wind_speed_m_s: number;
-      wind_direction_deg: number;
-      stability_class: string;
-    };
+    type: string;
+    features: Array<any>;
+    properties?: any;
   } | null;
   liveWeather?: {
     wind_speed_10m?: number;
@@ -35,16 +19,18 @@ interface TacticalMapProps {
     computed_stability_class?: string;
     source?: string;
   } | null;
+  liveFirmsData?: Array<{lat: number, lon: number, frp: number, confidence: string}> | null;
   onSelectFacility?: (facility: CorporateFacility) => void;
 }
 
-export const TacticalMap: React.FC<TacticalMapProps> = ({
-  targetCoords,
-  targetName,
+export const TacticalMap: React.FC<TacticalMapProps> = ({ 
+  targetCoords, 
+  targetName, 
   isExplosion,
   plumeData,
   liveWeather,
-  onSelectFacility,
+  liveFirmsData,
+  onSelectFacility
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -194,7 +180,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       if (isExplosion && plumeData && plumeData.features) {
         plumeData.features.forEach((feat) => {
           const rawCoords = feat.geometry.coordinates[0];
-          const leafletCoords = rawCoords.map((c) => [c[1], c[0]] as [number, number]);
+          const leafletCoords = rawCoords.map((c: any) => [c[1], c[0]] as [number, number]);
 
           const poly = L.polygon(leafletCoords, {
             color: feat.properties.color,
@@ -221,6 +207,44 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       hexCircle.remove();
     };
   }, [targetCoords, isExplosion, plumeData]);
+
+  // 3. Live NASA FIRMS Data
+  const firmsLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (!firmsLayerGroupRef.current) {
+      firmsLayerGroupRef.current = L.layerGroup().addTo(map);
+    }
+    
+    const firmsGroup = firmsLayerGroupRef.current;
+    firmsGroup.clearLayers();
+
+    if (liveFirmsData && liveFirmsData.length > 0) {
+      liveFirmsData.forEach((point) => {
+        const circle = L.circleMarker([point.lat, point.lon], {
+          radius: 3,
+          color: '#f97316', // Orange-500
+          fillColor: '#ea580c', // Orange-600
+          fillOpacity: 0.8,
+          weight: 1
+        });
+        
+        circle.bindTooltip(
+          `<div style="font-family:inherit;font-size:10px;padding:2px;">
+            <b style="color:#f97316">FIRMS Thermal Anomaly</b><br>
+            FRP: ${point.frp} MW<br>
+            Confidence: ${point.confidence}
+          </div>`,
+          { sticky: true }
+        );
+        
+        firmsGroup.addLayer(circle);
+      });
+    }
+  }, [liveFirmsData]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-zinc-950">
