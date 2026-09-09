@@ -39,7 +39,7 @@ async def get_jamnagar_baseline_proof(facility: str = "jamnagar_refinery") -> Di
     classification = triage_classifier.predict(telemetry)
     
     # Run Stage 3 CNN on routine flare scene
-    flare_patch = generate_calibrated_patch(scenario_type="routine_flare")
+    flare_patch = generate_calibrated_patch(scenario_type="routine_flare", facility_key=facility)
     cnn_results = cnn_verifier.predict(flare_patch["tensor"])
     
     # Fetch live weather for the facility (non-blocking, with fallback)

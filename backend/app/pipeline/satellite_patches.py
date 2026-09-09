@@ -4,10 +4,11 @@ Fetches or synthesizes multi-spectral Sentinel-2 Level-2A patches (64x64 pixels)
 for high-resolution deep-learning verification of industrial anomalies.
 """
 import io
+import os
 import base64
 import numpy as np
 from PIL import Image
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 from app.ml.spectral_transforms import (
     build_multispectral_tensor,
     generate_rgb_composite,
@@ -15,30 +16,62 @@ from app.ml.spectral_transforms import (
 )
 
 PATCH_SIZE = 64  # 64 x 64 pixels at 20m GSD corresponds to ~1.28 km x 1.28 km area
+BASEMAPS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "basemaps")
 
-def generate_calibrated_patch(scenario_type: str = "explosion") -> Dict[str, Any]:
-    """
-    Generates a physically calibrated 64x64 Sentinel-2 multi-spectral scene.
-    Scenarios:
-      - 'explosion': Catastrophic industrial explosion & blazing storage tank (B12 saturated, NBR < -0.4, smoke plume).
-      - 'routine_flare': Stationary refinery flare stack (localized single-point thermal emitter, normal background).
-      - 'false_glare': Metal industrial roof / solar farm specular reflection (high visible + SWIR, NBR > 0).
-      - 'ambient': Routine background industrial plant in thermal equilibrium.
-    """
+def load_facility_basemap(facility_key: str, h: int, w: int) -> np.ndarray:
+    """Loads a real satellite basemap for the facility and resizes it to (H, W, 3) RGB array."""
+    path = os.path.join(BASEMAPS_DIR, f"{facility_key}.png")
+    if os.path.exists(path):
+        try:
+            img = Image.open(path).convert("RGB")
+            img = img.resize((w, h), Image.BILINEAR)
+            return np.array(img, dtype=np.float32)
+        except Exception:
+            pass
+    
+    # Fallback to noise if basemap is missing
     rng = np.random.RandomState(42)
-    h, w = PATCH_SIZE, PATCH_SIZE
+    rgb = np.zeros((h, w, 3), dtype=np.float32)
+    rgb[:,:,0] = rng.normal(110, 10, (h, w)) # R
+    rgb[:,:,1] = rng.normal(100, 10, (h, w)) # G
+    rgb[:,:,2] = rng.normal(80, 10, (h, w))  # B
+    return rgb.clip(0, 255)
 
-    # Baseline background reflectance for industrial complex (concrete, roads, sparse grass)
-    b02 = rng.normal(800, 50, (h, w)).clip(400, 1500)   # Blue
-    b03 = rng.normal(1000, 60, (h, w)).clip(500, 1800)  # Green
-    b04 = rng.normal(1100, 70, (h, w)).clip(600, 2000)  # Red
-    b08 = rng.normal(2200, 150, (h, w)).clip(1200, 3500) # NIR
-    b11 = rng.normal(1800, 120, (h, w)).clip(1000, 2800) # SWIR-1
-    b12 = rng.normal(1400, 100, (h, w)).clip(800, 2200)  # SWIR-2
+def generate_calibrated_patch(scenario_type: str = "explosion", facility_key: str = "jamnagar_refinery") -> Dict[str, Any]:
+    """
+    Generates a physically calibrated 64x64 Sentinel-2 multi-spectral scene
+    by compositing simulated thermal anomalies onto real satellite basemaps.
+    """
+    h, w = PATCH_SIZE, PATCH_SIZE
+    
+    # 1. Load Real Basemap
+    base_rgb = load_facility_basemap(facility_key, h, w)
+    
+    # Sentinel-2 Digital Numbers (DN) are approx Reflectance * 10000. 
+    # For a rough mapping from 8-bit RGB [0-255] to Sentinel-2 DN:
+    # 255 -> ~3000 DN (max normal optical reflectance)
+    scale_factor = 3000.0 / 255.0
+    
+    b04 = base_rgb[:,:,0] * scale_factor  # Red
+    b03 = base_rgb[:,:,1] * scale_factor  # Green
+    b02 = base_rgb[:,:,2] * scale_factor  # Blue
+    
+    # 2. Synthesize baseline SWIR and NIR based on RGB heuristics
+    # NIR (B08) is high where vegetation (Green > Red) is present
+    veg_index = np.clip((b03 - b04) / (b03 + b04 + 1e-6), 0, 1)
+    b08 = b03 * 1.5 + (veg_index * 3000.0) # Boost NIR for green areas
+    b08 = b08.clip(800, 5000)
+    
+    # SWIR (B11, B12) is generally lower than optical for soil/veg, but high for bare concrete/metal
+    # We use average of RGB as a proxy for albedo
+    albedo = (b04 + b03 + b02) / 3.0
+    b11 = albedo * 1.2
+    b12 = albedo * 0.9
 
     # Center coordinates of the primary asset
     cy, cx = h // 2, w // 2
 
+    # 3. Inject Anomalies
     if scenario_type == "explosion":
         # Catastrophic explosion & fire across an oil tank farm (~15-20 pixels)
         for dy in range(-3, 4):
@@ -51,37 +84,45 @@ def generate_calibrated_patch(scenario_type: str = "explosion") -> Dict[str, Any
                     b12[y, x] += int(8500 * intensity)
                     b11[y, x] += int(5200 * intensity)
                     # Destruction of vegetation / severe negative NBR
-                    b08[y, x] = int(b08[y, x] * (1.0 - 0.7 * intensity))
+                    b08[y, x] = b08[y, x] * (1.0 - 0.7 * intensity)
                     # Smoke / flame optical tint
                     b04[y, x] += int(3000 * intensity)
                     b03[y, x] += int(1500 * intensity)
 
-        # Downwind smoke plume attenuation
+        # Downwind smoke plume attenuation (black/brown smoke blocking optical & SWIR)
         for step in range(1, 15):
             py = cy - step
             px = cx + int(step * 0.8)
             if 0 <= py < h and 0 <= px < w:
-                b04[py, px] += 800  # Grayish-brown smoke
-                b03[py, px] += 700
-                b02[py, px] += 600
+                plume_thickness = 1.0 - (step / 15.0)
+                # Smoke reflects somewhat in visible
+                b04[py, px] = b04[py, px] * (1 - plume_thickness) + 1500 * plume_thickness
+                b03[py, px] = b03[py, px] * (1 - plume_thickness) + 1300 * plume_thickness
+                b02[py, px] = b02[py, px] * (1 - plume_thickness) + 1200 * plume_thickness
+                # Smoke heavily attenuates NIR and SWIR
+                b08[py, px] *= (1 - plume_thickness * 0.5)
+                b11[py, px] *= (1 - plume_thickness * 0.5)
+                b12[py, px] *= (1 - plume_thickness * 0.5)
 
     elif scenario_type == "routine_flare":
         # Single-point stationary flare tip (1-2 pixels)
         b12[cy, cx] += 4200
         b11[cy, cx] += 2600
-        b12[cy+1, cx] += 1800
+        if cy+1 < h:
+            b12[cy+1, cx] += 1800
 
     elif scenario_type == "false_glare":
-        # Solar panels or metal rooftop: High optical reflectance across all channels, NBR not negative
+        # Solar panels or metal rooftop: High optical reflectance across all channels
         for dy in range(-2, 3):
             for dx in range(-4, 5):
                 y, x = cy + dy, cx + dx
-                b02[y, x] += 4000
-                b03[y, x] += 4500
-                b04[y, x] += 4800
-                b08[y, x] += 5000
-                b11[y, x] += 4200
-                b12[y, x] += 4000
+                if 0 <= y < h and 0 <= x < w:
+                    b02[y, x] += 4000
+                    b03[y, x] += 4500
+                    b04[y, x] += 4800
+                    b08[y, x] += 5000
+                    b11[y, x] += 4200
+                    b12[y, x] += 4000
 
     # Build 6-channel normalized tensor
     tensor_6ch = build_multispectral_tensor(b12, b11, b08, b04, b03, b02)

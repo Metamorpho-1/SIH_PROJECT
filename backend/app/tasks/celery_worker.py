@@ -39,7 +39,8 @@ def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, A
     time.sleep(2.0)
     
     # Stage 3: Deep-Learning Multi-Spectral CNN Verification
-    explosion_patch = generate_calibrated_patch(scenario_type="explosion")
+    facility_key = telemetry.get("facility_key", "jamnagar_refinery")
+    explosion_patch = generate_calibrated_patch(scenario_type="explosion", facility_key=facility_key)
     cnn_results = cnn_verifier.predict(explosion_patch["tensor"])
     verified_area_m2 = cnn_results["fire_footprint"]["fire_area_m2"]
     
