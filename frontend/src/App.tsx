@@ -12,7 +12,10 @@ import {
   TrendingUp,
   Volume2,
   VolumeX,
-  Radio
+  Radio,
+  FileText,
+  Wifi,
+  Wind
 } from 'lucide-react';
 import { TacticalMap } from './components/TacticalMap';
 import { TelemetryChart } from './components/TelemetryChart';
@@ -79,8 +82,38 @@ interface SimulationResult {
     properties: {
       emission_rate_g_s: number;
       max_evacuation_radius_km: number;
+      wind_speed_m_s: number;
+      wind_direction_deg: number;
+      stability_class: string;
     };
   };
+  live_weather?: {
+    wind_speed_10m: number;
+    wind_direction_10m: number;
+    temperature_2m: number;
+    computed_stability_class: string;
+    source: string;
+  };
+  chemical_profile?: {
+    chemical_type: string;
+    name?: string;
+    primary_hazard: string;
+    idlh_ppm: number;
+    erpg2_ppm: number;
+    computed_emission_rate_g_s: number;
+  };
+  population_impact?: {
+    total_estimated_exposed: number;
+    zone_breakdown: Record<string, number>;
+  };
+  xai_feature_attributions?: Array<{
+    feature: string;
+    value: number;
+    baseline: number;
+    contribution: number;
+    direction: string;
+  }>;
+  available_chemicals?: string[];
   ndrf_sop_dispatch?: any;
   demo_notes: string;
 }
@@ -95,6 +128,19 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [currentTimelineStage, setCurrentTimelineStage] = useState(0);
   const [currentTimeUTC, setCurrentTimeUTC] = useState('');
+  
+  // P4: WebSocket State
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsSocket, setWsSocket] = useState<WebSocket | null>(null);
+
+  // P2: What-If Sandbox State
+  const [whatIfMode, setWhatIfMode] = useState(false);
+  const [whatIfParams, setWhatIfParams] = useState({
+    chemical_type: 'GENERIC',
+    wind_speed_m_s: 5.2,
+    wind_direction_deg: 235,
+    explosion_frp_mw: 120
+  });
 
   // Live ticking UTC mission elapsed clock
   useEffect(() => {
@@ -112,6 +158,53 @@ export default function App() {
     triggerBaselineProof(CORPORATE_FACILITIES[0].key);
   }, []);
 
+  // WebSocket Connection Logic
+  useEffect(() => {
+    if (!wsConnected) {
+      if (wsSocket) {
+        wsSocket.close();
+        setWsSocket(null);
+      }
+      return;
+    }
+
+    const wsUrl = `ws://localhost:8000/api/v1/ws/tactical-feed`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('Tactical WebSocket Connected');
+      setWsSocket(ws);
+      // Focus scan on current facility
+      ws.send(JSON.stringify({ cmd: 'set_facility_focus', facility: selectedFacility.key }));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'INCIDENT_ALERT') {
+        playRedAlert();
+        setActiveScenario(data as SimulationResult);
+        setCurrentTimelineStage(2);
+      } else if (data.type === 'THERMAL_SCAN' && !activeScenario?.triage_result || (activeScenario?.triage_result?.class_id === 0)) {
+        // Just update baseline if we're not currently looking at an explosion
+        // (In a real app, this would update a ticker, but we can set it as active baseline)
+        if (!whatIfMode && currentTimelineStage === 0 && data.facility_key === selectedFacility.key) {
+           // setActiveScenario(data as SimulationResult); 
+           // Optional: smooth updates to baseline, but skip to avoid flashing
+        }
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('Tactical WebSocket Disconnected');
+      setWsConnected(false);
+      setWsSocket(null);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [wsConnected, selectedFacility.key]);
+
   const toggleAudio = () => {
     const newMuted = !muted;
     setMuted(newMuted);
@@ -120,12 +213,14 @@ export default function App() {
 
   const triggerBaselineProof = async (facilityKey: string = selectedFacility.key) => {
     setLoading(true);
+    setWhatIfMode(false);
     playRadarPing();
     setCurrentTimelineStage(0);
     try {
       const res = await fetch(`${API_BASE}/simulation/baseline-proof?facility=${facilityKey}`);
       const data = await res.json();
       setActiveScenario(data);
+      setWhatIfParams(prev => ({ ...prev, chemical_type: data.available_chemicals?.[0] || 'GENERIC' }));
       playConfirmTone();
     } catch (err) {
       console.error('API baseline fetch error:', err);
@@ -136,15 +231,29 @@ export default function App() {
 
   const triggerIncidentInjection = async (facilityKey: string = selectedFacility.key) => {
     setLoading(true);
+    setWhatIfMode(false);
     playRedAlert();
     setCurrentTimelineStage(1);
+    
+    if (wsConnected && wsSocket) {
+      // Trigger via WebSocket if connected
+      wsSocket.send(JSON.stringify({ cmd: 'inject_incident', facility: facilityKey }));
+      setTimeout(() => setLoading(false), 500);
+      return;
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}`, { method: 'POST' });
       const data = await res.json();
       setActiveScenario(data);
-      // Advance timeline automatically to step 2 after 1.5s
+      if (data.live_weather) {
+        setWhatIfParams(prev => ({
+          ...prev,
+          wind_speed_m_s: data.live_weather.wind_speed_10m || 5.2,
+          wind_direction_deg: data.live_weather.wind_direction_10m || 235
+        }));
+      }
       setTimeout(() => setCurrentTimelineStage(2), 1500);
-      // Advance to step 3 after 3.5s
       setTimeout(() => setCurrentTimelineStage(3), 3500);
     } catch (err) {
       console.error('API explosion injection error:', err);
@@ -152,6 +261,64 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  const downloadDossier = async () => {
+    if (!activeScenario || activeScenario.scenario.includes('BASELINE')) return;
+    try {
+      const res = await fetch(`${API_BASE}/dossier/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facility: selectedFacility.key, scenario: 'structural_explosion' })
+      });
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NDRF_Dossier_${selectedFacility.key}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download dossier', err);
+    }
+  };
+
+  // What-If Debounced Effect
+  useEffect(() => {
+    if (!whatIfMode || loading) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/simulation/what-if`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            facility: selectedFacility.key,
+            wind_speed_m_s: whatIfParams.wind_speed_m_s,
+            wind_direction_deg: whatIfParams.wind_direction_deg,
+            chemical_type: whatIfParams.chemical_type,
+            explosion_frp_mw: whatIfParams.explosion_frp_mw,
+            stability_class: activeScenario?.live_weather?.computed_stability_class || 'C'
+          })
+        });
+        const data = await res.json();
+        
+        // Merge into active scenario
+        setActiveScenario(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            chemical_profile: data.chemical_profile,
+            plume_dispersion: data.plume_dispersion,
+            population_impact: data.population_impact,
+            triage_result: data.triage_result || prev.triage_result,
+            cnn_verification: data.cnn_verification || prev.cnn_verification
+          };
+        });
+      } catch (err) {
+        console.error('What-If simulation failed', err);
+      }
+    }, 400); // 400ms debounce
+    return () => clearTimeout(timer);
+  }, [whatIfParams, whatIfMode, selectedFacility.key]);
 
   const triggerFalseGlareTest = async () => {
     setLoading(true);
@@ -240,52 +407,76 @@ export default function App() {
           </div>
         </div>
 
-        {/* Demo Simulation Controls & Audio Toggle */}
-        <div className="flex items-center space-x-2.5">
-          <button
-            onClick={() => triggerBaselineProof(selectedFacility.key)}
-            disabled={loading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow transition active:scale-95"
-            title="Step 1: Baseline Proof (Zero false alarms on routine flaring)"
-          >
-            <Play className="w-3.5 h-3.5 text-emerald-400" />
-            <span>1. Baseline Proof</span>
-          </button>
-          
-          <button
-            onClick={() => triggerIncidentInjection(selectedFacility.key)}
-            disabled={loading}
-            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-red-950 hover:bg-red-900 text-red-200 border border-red-700 shadow-lg shadow-red-950/40 transition active:scale-95"
-            title="Step 2: Inject sudden 120MW industrial thermal explosion"
-          >
-            <Zap className="w-4 h-4 text-red-400 animate-bounce" />
-            <span>2. Inject 120MW Explosion</span>
-          </button>
+          {/* Demo Simulation Controls & Audio Toggle */}
+          <div className="flex items-center space-x-2.5">
+            <button
+              onClick={() => setWsConnected(!wsConnected)}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition border shadow-sm ${
+                wsConnected 
+                  ? 'bg-blue-900/60 text-blue-300 border-blue-500/50 hover:bg-blue-800' 
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+              }`}
+              title="P4: Toggle Live WebSocket Tactical Stream"
+            >
+              <Wifi className={`w-3.5 h-3.5 ${wsConnected ? 'animate-pulse text-blue-400' : ''}`} />
+              <span>{wsConnected ? 'Live Stream Active' : 'Start WS Feed'}</span>
+            </button>
 
-          <button
-            onClick={triggerFalseGlareTest}
-            disabled={loading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-800 shadow transition active:scale-95"
-            title="Step 3: Demonstrate CNN rejection of specular optical glare"
-          >
-            <Sun className="w-3.5 h-3.5 text-amber-400" />
-            <span>3. Test Solar Glare</span>
-          </button>
+            <button
+              onClick={() => triggerBaselineProof(selectedFacility.key)}
+              disabled={loading}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow transition active:scale-95"
+              title="Step 1: Baseline Proof (Zero false alarms on routine flaring)"
+            >
+              <Play className="w-3.5 h-3.5 text-emerald-400" />
+              <span>1. Baseline Proof</span>
+            </button>
+            
+            <button
+              onClick={() => triggerIncidentInjection(selectedFacility.key)}
+              disabled={loading}
+              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-red-950 hover:bg-red-900 text-red-200 border border-red-700 shadow-lg shadow-red-950/40 transition active:scale-95"
+              title="Step 2: Inject sudden 120MW industrial thermal explosion"
+            >
+              <Zap className="w-4 h-4 text-red-400 animate-bounce" />
+              <span>2. Inject 120MW Explosion</span>
+            </button>
 
-          {/* Audio FX Mute / Unmute Toggle */}
-          <button
-            onClick={toggleAudio}
-            className={`p-2 rounded-lg border transition ${
-              muted 
-                ? 'bg-slate-900 text-slate-500 border-slate-800' 
-                : 'bg-slate-800 text-cyan-400 border-slate-700 shadow-sm'
-            }`}
-            title={muted ? 'Unmute Tactical Audio FX' : 'Mute Tactical Audio FX'}
-          >
-            {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-        </div>
-      </header>
+            {isExplosion && (
+              <button
+                onClick={downloadDossier}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 shadow transition active:scale-95"
+                title="P5: Download NDRF Flash Dossier PDF"
+              >
+                <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Download Dossier</span>
+              </button>
+            )}
+
+            <button
+              onClick={triggerFalseGlareTest}
+              disabled={loading}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-800 shadow transition active:scale-95"
+              title="Step 3: Demonstrate CNN rejection of specular optical glare"
+            >
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <span>3. Test Solar Glare</span>
+            </button>
+
+            {/* Audio FX Mute / Unmute Toggle */}
+            <button
+              onClick={toggleAudio}
+              className={`p-2 rounded-lg border transition ${
+                muted 
+                  ? 'bg-slate-900 text-slate-500 border-slate-800' 
+                  : 'bg-slate-800 text-cyan-400 border-slate-700 shadow-sm'
+              }`}
+              title={muted ? 'Unmute Tactical Audio FX' : 'Mute Tactical Audio FX'}
+            >
+              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          </div>
+        </header>
 
       {/* Corporate Facility Switcher Ribbon */}
       <div className="bg-slate-900/80 border-b border-slate-800/80 px-4 py-1.5 shrink-0">
@@ -318,11 +509,85 @@ export default function App() {
           <div className="flex-1 relative">
             <TacticalMap
               targetCoords={currentCoords}
-              targetName={selectedFacility.name}
+              targetName={selectedFacility.key}
               isExplosion={isExplosion}
               plumeData={activeScenario?.plume_dispersion || null}
+              liveWeather={activeScenario?.live_weather || null}
               onSelectFacility={handleFacilitySelect}
             />
+
+            {/* P2: What-If Digital Twin Sandbox Overlay */}
+            {isExplosion && (
+              <div className="absolute top-4 left-4 z-[500] w-72 bg-slate-900/95 border border-slate-700 backdrop-blur rounded-xl shadow-2xl overflow-hidden flex flex-col">
+                <div className="bg-slate-800/80 px-3 py-2 border-b border-slate-700 flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
+                    <Wind className="w-3.5 h-3.5 text-cyan-400" />
+                    Interactive Sandbox
+                  </span>
+                  <button 
+                    onClick={() => setWhatIfMode(!whatIfMode)}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded border transition ${whatIfMode ? 'bg-cyan-900/50 text-cyan-300 border-cyan-700' : 'bg-slate-800 text-slate-400 border-slate-600'}`}
+                  >
+                    {whatIfMode ? 'ACTIVE' : 'ENABLE'}
+                  </button>
+                </div>
+                
+                {whatIfMode && (
+                  <div className="p-3 space-y-3 text-xs font-mono">
+                    <div className="space-y-1">
+                      <label className="text-slate-400 flex justify-between">
+                        <span>Chemical Profile</span>
+                      </label>
+                      <select 
+                        value={whatIfParams.chemical_type}
+                        onChange={(e) => setWhatIfParams(p => ({ ...p, chemical_type: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-cyan-500"
+                      >
+                        {(activeScenario?.available_chemicals || ['GENERIC']).map(chem => (
+                          <option key={chem} value={chem}>{chem.replace(/_/g, ' ')}</option>
+                        ))}
+                        <option value="BENZENE">BENZENE</option>
+                        <option value="AMMONIA">AMMONIA</option>
+                        <option value="CHLORINE">CHLORINE</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-slate-400 flex justify-between">
+                        <span>Wind Speed (m/s)</span>
+                        <span className="text-cyan-400 font-bold">{whatIfParams.wind_speed_m_s}</span>
+                      </label>
+                      <input 
+                        type="range" min="0" max="25" step="0.5"
+                        value={whatIfParams.wind_speed_m_s}
+                        onChange={(e) => setWhatIfParams(p => ({ ...p, wind_speed_m_s: parseFloat(e.target.value) }))}
+                        className="w-full accent-cyan-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-slate-400 flex justify-between">
+                        <span>Wind Direction (°)</span>
+                        <span className="text-cyan-400 font-bold">{whatIfParams.wind_direction_deg}°</span>
+                      </label>
+                      <input 
+                        type="range" min="0" max="360" step="5"
+                        value={whatIfParams.wind_direction_deg}
+                        onChange={(e) => setWhatIfParams(p => ({ ...p, wind_direction_deg: parseFloat(e.target.value) }))}
+                        className="w-full accent-cyan-500"
+                      />
+                    </div>
+                    
+                    {activeScenario?.population_impact && (
+                      <div className="mt-2 p-2 bg-red-950/30 border border-red-900/50 rounded flex justify-between items-center">
+                        <span className="text-slate-400">Est. Pop at Risk:</span>
+                        <span className="text-red-400 font-bold">{activeScenario.population_impact.total_estimated_exposed.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Incident Timeline Scrubber */}
@@ -414,6 +679,32 @@ export default function App() {
                 facilityName={selectedFacility.name} 
               />
             </div>
+            
+            {/* P5: XAI Feature Attributions */}
+            {activeScenario?.xai_feature_attributions && (
+              <div className="pt-2">
+                <span className="text-[11px] font-mono text-slate-400 block mb-1.5 flex items-center justify-between">
+                  <span>SHAP-Style Feature Explainability Audit</span>
+                </span>
+                <div className="grid grid-cols-1 gap-1 border border-slate-800 rounded bg-slate-900/50 p-2 text-[10px] font-mono">
+                  {activeScenario.xai_feature_attributions.map((attr, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-slate-400 w-24 truncate">{attr.feature}</span>
+                      <div className="flex-1 mx-2 bg-slate-800 h-1.5 rounded-full overflow-hidden flex">
+                        {attr.contribution > 0 ? (
+                          <div className="bg-red-500 h-full" style={{ width: `${Math.min(100, attr.contribution * 100)}%`, marginLeft: 'auto' }} />
+                        ) : (
+                          <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, Math.abs(attr.contribution) * 100)}%` }} />
+                        )}
+                      </div>
+                      <span className={`w-12 text-right ${attr.contribution > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {attr.contribution > 0 ? '+' : ''}{(attr.contribution).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2: Tier 2 Multi-Spectral CNN Verification (Sentinel-2) */}

@@ -21,6 +21,19 @@ interface TacticalMapProps {
         coordinates: number[][][];
       };
     }>;
+    properties?: {
+      emission_rate_g_s: number;
+      max_evacuation_radius_km: number;
+      wind_speed_m_s: number;
+      wind_direction_deg: number;
+      stability_class: string;
+    };
+  } | null;
+  liveWeather?: {
+    wind_speed_10m?: number;
+    wind_direction_10m?: number;
+    computed_stability_class?: string;
+    source?: string;
   } | null;
   onSelectFacility?: (facility: CorporateFacility) => void;
 }
@@ -30,6 +43,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   targetName,
   isExplosion,
   plumeData,
+  liveWeather,
   onSelectFacility,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -258,22 +272,30 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       </div>
 
       {/* Bottom Left: Wind Vector Compass HUD */}
-      {isExplosion && (
+      {isExplosion && plumeData && (
         <div className="absolute bottom-4 left-4 z-[400] bg-slate-900/95 border border-red-800/80 backdrop-blur p-3 rounded-xl shadow-2xl font-mono text-xs text-slate-200 pointer-events-none space-y-1.5 max-w-xs">
           <div className="flex items-center justify-between text-red-400 font-bold">
             <span className="flex items-center space-x-1.5">
               <Compass className="w-4 h-4 text-red-400 animate-spin" />
               <span>10m Wind Vector:</span>
             </span>
-            <span className="text-white">5.2 m/s @ 235° (SW)</span>
+            <span className="text-white">
+              {liveWeather?.wind_speed_10m ?? plumeData.properties?.wind_speed_m_s ?? 5.2} m/s @ {liveWeather?.wind_direction_10m ?? plumeData.properties?.wind_direction_deg ?? 235}°
+            </span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Active toxic chemical plume dispersion propagating Northeast directly toward local civil defense sectors.
+            Active toxic chemical plume dispersion propagating downwind. Stability Class: {liveWeather?.computed_stability_class ?? plumeData.properties?.stability_class ?? 'C'}
           </p>
-          <div className="flex items-center space-x-2 pt-1 text-[10px]">
-            <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">Zone 1: 4.8 km</span>
-            <span className="px-1.5 py-0.5 rounded bg-orange-950 text-orange-400 border border-orange-800">Zone 2: 9.0 km</span>
-            <span className="px-1.5 py-0.5 rounded bg-yellow-950 text-yellow-400 border border-yellow-800">Zone 3: 15 km</span>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
+            {plumeData.features?.map((feat) => (
+              <span key={feat.properties.zone_id} className="px-1.5 py-0.5 rounded border" style={{
+                backgroundColor: feat.properties.color + '40', // 25% opacity background
+                color: feat.properties.color,
+                borderColor: feat.properties.color
+              }}>
+                Zone {feat.properties.zone_id}: {feat.properties.reach_km} km
+              </span>
+            ))}
           </div>
         </div>
       )}
