@@ -144,12 +144,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   };
 
   // 1. Camera Control: Fly to target only when coordinates or explosion status changes
+  const targetLat = targetCoords[0];
+  const targetLon = targetCoords[1];
+
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    map.flyTo(targetCoords, isExplosion ? 11 : 12, { duration: 1.2 });
-  }, [targetCoords, isExplosion]);
+    map.flyTo([targetLat, targetLon], isExplosion ? 11 : 12, { duration: 1.2 });
+  }, [targetLat, targetLon, isExplosion]);
 
   // 2. Data Layers: Update markers, hexes, and plumes
   useEffect(() => {
