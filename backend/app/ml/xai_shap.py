@@ -22,12 +22,12 @@ def compute_feature_attributions(telemetry_record: Dict[str, Any], triage_result
         Sorted list (by absolute contribution) of dicts with feature attributions.
     """
     baseline_values = {
-        "FRP": 25.0,
-        "TAI": 0.0,
-        "SPF": 0.5,
-        "Bright_I4": 320.0,
-        "Delta_Brightness": 25.0,
-        "OSM_Industrial": 1.0
+        "frp": ("FRP", 25.0),
+        "tai": ("TAI", 0.0),
+        "spf": ("SPF", 0.5),
+        "bright_ti4": ("BRIGHT I4", 320.0),
+        "delta_brightness": ("DELTA BRIGHTNESS", 25.0),
+        "osm_industrial": ("OSM INDUSTRIAL", 1.0)
     }
     
     # Extract features for the current record
@@ -36,14 +36,18 @@ def compute_feature_attributions(telemetry_record: Dict[str, Any], triage_result
     attributions = []
     
     # Simple heuristic/proxy calculation for SHAP-style marginal contribution
-    for feat_name, baseline in baseline_values.items():
-        val = features.get(feat_name, telemetry_record.get(feat_name, baseline))
+    for dict_key, (display_name, baseline) in baseline_values.items():
+        val = features.get(dict_key, telemetry_record.get(dict_key, baseline))
         
         diff = float(val) - baseline
         
-        # Approximate contribution (in a real ML system, we'd run inference again)
-        contribution_val = abs(diff) / (baseline + 1e-5) * 10.0
-        contribution_val = min(contribution_val, 40.0)  # cap at 40%
+        # Approximate contribution mapped to [-1.0, 1.0] for UI
+        # In a real ML system, we'd run inference again and take difference in log-odds
+        scale_factor = baseline if baseline != 0 else 1.0
+        raw_contrib = diff / scale_factor * 0.15 # Scale down for UI
+        
+        # Cap contribution magnitude between -0.85 and 0.85 for realistic SHAP values
+        contribution_val = max(-0.85, min(0.85, raw_contrib))
         
         direction = "INCREASES_RISK" if diff > 0 else "DECREASES_RISK"
         if diff == 0:
@@ -51,9 +55,9 @@ def compute_feature_attributions(telemetry_record: Dict[str, Any], triage_result
             contribution_val = 0.0
             
         attributions.append({
-            "feature": feat_name,
+            "feature": display_name,
             "value": round(float(val), 2),
-            "contribution": round(contribution_val, 2),
+            "contribution": round(contribution_val, 3),
             "direction": direction,
             "baseline": baseline
         })
