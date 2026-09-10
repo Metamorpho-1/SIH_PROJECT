@@ -1022,23 +1022,23 @@ export default function App() {
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Evacuation Radius</p>
                       <p className="text-zinc-200 font-semibold">
-                        <AnimatedCounter value={activeScenario.ndrf_sop_dispatch.evacuation_zone_km} decimals={1} /> km
+                        <AnimatedCounter value={activeScenario.plume_dispersion?.properties?.max_evacuation_radius_km ?? activeScenario.ndrf_sop_dispatch.evacuation_zone_km} decimals={1} /> km
                       </p>
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Population at Risk</p>
                       <p className="text-zinc-200 font-semibold">
-                        ~<AnimatedCounter value={activeScenario.ndrf_sop_dispatch.total_population_at_risk} format="comma" />
+                        ~<AnimatedCounter value={activeScenario.population_impact?.total_estimated_exposed ?? activeScenario.ndrf_sop_dispatch.total_population_at_risk} format="comma" />
                       </p>
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Chemical Hazard</p>
-                      <p className="text-red-400 font-semibold">{activeScenario.ndrf_sop_dispatch.chemical_hazard}</p>
+                      <p className="text-red-400 font-semibold">{activeScenario.chemical_profile?.primary_hazard ?? activeScenario.ndrf_sop_dispatch.chemical_hazard}</p>
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Confidence</p>
                       <p className="text-zinc-200 font-semibold">
-                        <AnimatedCounter value={activeScenario.ndrf_sop_dispatch.cnn_confidence_pct} decimals={1} />%
+                        <AnimatedCounter value={activeScenario.cnn_verification?.confidence ? activeScenario.cnn_verification.confidence * 100 : activeScenario.ndrf_sop_dispatch.cnn_confidence_pct} decimals={1} />%
                       </p>
                     </div>
                   </div>
