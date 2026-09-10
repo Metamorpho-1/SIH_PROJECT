@@ -129,7 +129,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [currentTimelineStage, setCurrentTimelineStage] = useState(0);
   const [currentTimeUTC, setCurrentTimeUTC] = useState('');
-  
+  const [taskStatus, setTaskStatus] = useState<{status: string, step: string, progress: number} | null>(null);  
   // P4: WebSocket State
   const [wsConnected, setWsConnected] = useState(false);
   const [wsSocket, setWsSocket] = useState<WebSocket | null>(null);
@@ -233,6 +233,15 @@ export default function App() {
     }
   };
 
+  const triggerFirmsIncident = (point: {lat: number, lon: number, frp: number}) => {
+    if (window.confirm(`Coarse-Resolution Anomaly Detected at ${point.lat.toFixed(4)}, ${point.lon.toFixed(4)} (FRP: ${point.frp} MW).\n\nDelegate to Aura-Fire for High-Res Verification?`)) {
+      setWhatIfParams(prev => ({
+        ...prev,
+        explosion_frp_mw: point.frp
+      }));
+      triggerIncidentInjection();
+    }
+  };
   const triggerIncidentInjection = async (facilityKey: string = selectedFacility.key) => {
     setLoading(true);
     setWhatIfMode(false);
@@ -278,6 +287,24 @@ export default function App() {
   };
 
   // What-If Debounced Effect
+  // Poll Celery Task Status
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" && (activeScenario as any).task_id) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/simulation/task-status/${(activeScenario as any).task_id}`);
+          const data = await res.json();
+          setTaskStatus(data);
+        } catch (err) {
+          console.error('Failed to fetch task status', err);
+        }
+      }, 500);
+    } else {
+      setTaskStatus(null);
+    }
+    return () => clearInterval(interval);
+  }, [activeScenario]);
   useEffect(() => {
     if (!whatIfMode || loading) return;
     const timer = setTimeout(async () => {
@@ -537,14 +564,18 @@ export default function App() {
 
           {/* High-Resolution Map */}
           <div className="flex-1 relative">
-            <TacticalMap
-              targetCoords={currentCoords}
-              targetName={selectedFacility.key}
-              isExplosion={isExplosion}
-              plumeData={currentTimelineStage >= 3 ? activeScenario?.plume_dispersion : null}
-              liveWeather={activeScenario?.live_weather || null}
-              liveFirmsData={liveFirmsData}
-              onSelectFacility={handleFacilitySelect}
+            <TacticalMap 
+              targetCoords={selectedFacility.coords}
+              targetName={selectedFacility.name}
+              isExplosion={activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" || activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED"}
+              plumeData={activeScenario?.plume_dispersion}
+              liveWeather={activeScenario?.live_weather}
+              liveFirmsData={showFirms ? liveFirmsData : null}
+              onSelectFacility={(facility) => {
+                setSelectedFacility(facility);
+                triggerBaselineProof(facility.key);
+              }}
+              onFirmsClick={triggerFirmsIncident}
             />
 
             {/* P2: What-If Digital Twin Sandbox Overlay */}
@@ -780,13 +811,30 @@ export default function App() {
 
                 {/* Multi-Spectral Imagery Card */}
                 {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
-                  <div className="p-8 text-center bg-zinc-900/30 border border-zinc-800/60 rounded-2xl space-y-3">
-                    <Satellite className="w-6 h-6 text-zinc-400 animate-pulse mx-auto" />
-                    <div>
-                      <h4 className="text-sm font-semibold text-zinc-200 mb-1">Inference Queued</h4>
-                      <p className="text-xs text-zinc-500">
-                        Processing high-resolution deep learning models<br/>on distributed compute cluster...
-                      </p>
+                  <div className="p-6 bg-black/60 border border-zinc-800/80 rounded-2xl space-y-4 font-mono">
+                    <div className="flex items-center gap-3 text-indigo-400">
+                      <Satellite className="w-5 h-5 animate-pulse" />
+                      <span className="text-xs font-semibold tracking-wider uppercase">Live Inference Feed</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] text-zinc-400">
+                        <span>{taskStatus?.step || 'Initializing compute cluster...'}</span>
+                        <span>{taskStatus?.progress || 0}%</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                        <motion.div 
+                          className="h-full bg-indigo-500"
+                          animate={{ width: `${taskStatus?.progress || 0}%` }}
+                          transition={{ ease: "linear", duration: 0.5 }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-zinc-950/80 p-3 rounded-lg border border-zinc-800/50 text-[9px] text-zinc-500 leading-relaxed max-h-24 overflow-hidden">
+                      {`> [SYSTEM] Acknowledged payload from Tier 1.`}<br/>
+                      {`> [NODE] Allocating GPU resources... OK.`}<br/>
+                      {taskStatus?.step ? `> [TASK] ${taskStatus.step}` : ''}
                     </div>
                   </div>
                 ) : activeScenario?.satellite_imagery ? (

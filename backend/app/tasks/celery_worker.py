@@ -24,8 +24,8 @@ async def _publish_to_redis(channel: str, message: dict):
     await redis.publish(channel, json.dumps(message))
     logger.info(f"Published task result to {channel}")
 
-@shared_task(name="app.tasks.celery_worker.verify_incident_async")
-def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, Any], weather: Dict[str, Any], chemical_type: str, xai_attributions: list):
+@shared_task(bind=True, name="app.tasks.celery_worker.verify_incident_async")
+def verify_incident_async(self, telemetry: Dict[str, Any], classification: Dict[str, Any], weather: Dict[str, Any], chemical_type: str, xai_attributions: list):
     """
     Heavy task run by Celery worker.
     1. Runs the PyTorch CNN (mocked latency).
@@ -35,10 +35,18 @@ def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, A
     import time
     logger.info(f"Started async verification for {telemetry['facility_name']}")
     
-    # Simulate heavy deep learning inference time
-    time.sleep(2.0)
+    # State 1: Acknowledged
+    self.update_state(state='PROCESSING', meta={'step': 'Downloading Sentinel-2 B12/B8 High-Resolution Thermal Swath...', 'progress': 20})
+    time.sleep(1.0)
+    
+    # State 2: Imagery Alignment
+    self.update_state(state='PROCESSING', meta={'step': 'Performing Tensor Alignment & Atmospheric Correction...', 'progress': 40})
+    time.sleep(0.5)
     
     # Stage 3: Deep-Learning Multi-Spectral CNN Verification
+    self.update_state(state='PROCESSING', meta={'step': 'Running Aura-Fire Semantic Segmentation CNN...', 'progress': 60})
+    time.sleep(1.5)
+    
     facility_key = telemetry.get("facility_key", "jamnagar_refinery")
     explosion_patch = generate_calibrated_patch(scenario_type="explosion", facility_key=facility_key)
     cnn_results = cnn_verifier.predict(explosion_patch["tensor"])
@@ -46,6 +54,10 @@ def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, A
     
     from app.pipeline.descriptive_analysis import generate_spatial_impact_analysis
     cnn_results["descriptive_analysis"] = generate_spatial_impact_analysis(facility_key, chemical_type, verified_area_m2)
+    
+    # State 4: Plume & Dispatch
+    self.update_state(state='PROCESSING', meta={'step': 'Calculating 3D Gaussian Plume & Population Impact...', 'progress': 85})
+    time.sleep(0.5)
     
     facility = telemetry.get("facility_key", "jamnagar_refinery")
     wind_speed = weather.get("wind_speed_10m", 5.2)

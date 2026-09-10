@@ -3,7 +3,10 @@ LightGBM Multi-Class Triage Engine
 Classifies incoming hotspot telemetry into 4 discrete operational taxonomy classes in <5ms.
 """
 import time
+import os
 import logging
+import joblib
+import numpy as np
 from typing import Dict, Any, Tuple
 from app.ml.features import extract_features_from_telemetry
 
@@ -47,40 +50,67 @@ CLASSES = {
 
 class HotspotTriageClassifier:
     def __init__(self, model_path: str = None):
-        self.model = None
+        if model_path is None:
+            # Default to the generated aura_model_v1.pkl
+            model_path = os.path.join(os.path.dirname(__file__), 'aura_model_v1.pkl')
+            
         self.model_path = model_path
-        # In production, self.model = lgb.Booster(model_file=model_path)
+        self.model = None
+        
+        try:
+            if os.path.exists(self.model_path):
+                self.model = joblib.load(self.model_path)
+                logger.info(f"Successfully loaded Scikit-Learn RandomForest model from {self.model_path}")
+            else:
+                logger.warning(f"Model file {self.model_path} not found. Falling back to heuristic rules.")
+        except Exception as e:
+            logger.error(f"Error loading model: {e}")
     
     def predict(self, telemetry_record: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes sub-5ms multi-class classification.
-        Uses exact mathematical boundary rules and gradient-boosted decision logic.
+        Executes sub-5ms multi-class classification using the trained Random Forest model.
         """
         start_time = time.perf_counter()
         features = extract_features_from_telemetry(telemetry_record)
         
-        spf = features["spf"]
-        tai = features["tai"]
-        bright_ti4 = features["bright_ti4"]
-        osm_ind = features["osm_industrial"]
-        
-        # Rule-informed gradient decision boundary
-        if osm_ind > 0.5 or spf >= 0.35:
-            # Inside industrial perimeter or high spatial persistence
-            if tai > 3.0 or (tai > 2.5 and bright_ti4 > 350.0):
-                predicted_class = 1  # Accidental Industrial Fire / Explosion
-                confidence = min(0.99, 0.85 + (tai - 3.0) * 0.03)
-            else:
-                predicted_class = 0  # Routine Industrial Activity
-                confidence = 0.96
+        if self.model is not None:
+            # Prepare feature vector strictly matching train order: 
+            # ['frp', 'bright_ti4', 'bright_ti5', 'delta_brightness', 'spf', 'tai', 'osm_industrial']
+            X = np.array([[
+                features["frp"],
+                features["bright_ti4"],
+                features["bright_ti5"],
+                features["delta_brightness"],
+                features["spf"],
+                features["tai"],
+                features["osm_industrial"]
+            ]])
+            
+            # Predict
+            predicted_class = int(self.model.predict(X)[0])
+            probas = self.model.predict_proba(X)[0]
+            confidence = float(probas[predicted_class])
         else:
-            # Non-industrial perimeter
-            if spf <= 0.05 and features["frp"] < 60.0:
-                predicted_class = 2  # Agricultural / Stubble Burning
-                confidence = 0.92
+            # Fallback heuristic rules
+            spf = features["spf"]
+            tai = features["tai"]
+            bright_ti4 = features["bright_ti4"]
+            osm_ind = features["osm_industrial"]
+            
+            if osm_ind > 0.5 or spf >= 0.35:
+                if tai > 3.0 or (tai > 2.5 and bright_ti4 > 350.0):
+                    predicted_class = 1
+                    confidence = min(0.99, 0.85 + (tai - 3.0) * 0.03)
+                else:
+                    predicted_class = 0
+                    confidence = 0.96
             else:
-                predicted_class = 3  # Wildfire / Forest Fire
-                confidence = 0.89
+                if spf <= 0.05 and features["frp"] < 60.0:
+                    predicted_class = 2
+                    confidence = 0.92
+                else:
+                    predicted_class = 3
+                    confidence = 0.89
         
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         class_meta = CLASSES[predicted_class]

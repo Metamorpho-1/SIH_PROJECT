@@ -96,7 +96,7 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
     # Dispatch to Celery queue!
     from app.tasks.celery_app import celery_app
     from app.tasks.celery_worker import verify_incident_async
-    verify_incident_async.delay(
+    task = verify_incident_async.delay(
         telemetry=telemetry,
         classification=classification,
         weather=weather,
@@ -107,6 +107,7 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
     return {
         "status": "ACCEPTED",
         "scenario": "INCIDENT_SIMULATION_EXPLOSION_QUEUED",
+        "task_id": task.id,
         "facility": telemetry["facility_name"],
         "coordinates": {"lat": telemetry["latitude"], "lon": telemetry["longitude"]},
         "telemetry": telemetry,
@@ -115,3 +116,35 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
         "live_weather": weather,
         "demo_notes": f"Tier 1 Primary Scan classified in {classification['inference_time_ms']} ms. Spectral Analysis validation delegated to Distributed Compute Nodes."
     }
+
+@router.get("/task-status/{task_id}")
+async def get_task_status(task_id: str):
+    from app.tasks.celery_app import celery_app
+    from celery.result import AsyncResult
+    
+    result = AsyncResult(task_id, app=celery_app)
+    
+    if result.state == 'PROCESSING':
+        return {
+            "status": "PROCESSING",
+            "step": result.info.get('step', 'Processing...'),
+            "progress": result.info.get('progress', 0)
+        }
+    elif result.state == 'PENDING':
+        return {
+            "status": "PENDING",
+            "step": "Waiting in queue...",
+            "progress": 0
+        }
+    elif result.state == 'SUCCESS':
+        return {
+            "status": "SUCCESS",
+            "step": "Complete",
+            "progress": 100
+        }
+    else:
+        return {
+            "status": result.state,
+            "step": str(result.info),
+            "progress": 0
+        }

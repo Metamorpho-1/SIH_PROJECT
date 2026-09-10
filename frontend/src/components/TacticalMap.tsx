@@ -21,6 +21,7 @@ interface TacticalMapProps {
   } | null;
   liveFirmsData?: Array<{lat: number, lon: number, frp: number, confidence: string}> | null;
   onSelectFacility?: (facility: CorporateFacility) => void;
+  onFirmsClick?: (point: {lat: number, lon: number, frp: number}) => void;
 }
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({ 
@@ -30,7 +31,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   plumeData,
   liveWeather,
   liveFirmsData,
-  onSelectFacility
+  onSelectFacility,
+  onFirmsClick
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -236,15 +238,22 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           `<div style="font-family:inherit;font-size:10px;padding:2px;">
             <b style="color:#f97316">FIRMS Thermal Anomaly</b><br>
             FRP: ${point.frp} MW<br>
-            Confidence: ${point.confidence}
+            Confidence: ${point.confidence}<br>
+            <i style="color:#9ca3af;font-size:8px;">Click to Trigger High-Res Aura-Fire Triage</i>
           </div>`,
           { sticky: true }
         );
         
+        circle.on('click', () => {
+          if (onFirmsClick) {
+            onFirmsClick(point);
+          }
+        });
+        
         firmsGroup.addLayer(circle);
       });
     }
-  }, [liveFirmsData]);
+  }, [liveFirmsData, onFirmsClick]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-zinc-950">
