@@ -44,6 +44,9 @@ def verify_incident_async(telemetry: Dict[str, Any], classification: Dict[str, A
     cnn_results = cnn_verifier.predict(explosion_patch["tensor"])
     verified_area_m2 = cnn_results["fire_footprint"]["fire_area_m2"]
     
+    from app.pipeline.descriptive_analysis import generate_spatial_impact_analysis
+    cnn_results["descriptive_analysis"] = generate_spatial_impact_analysis(facility_key, chemical_type, verified_area_m2)
+    
     facility = telemetry.get("facility_key", "jamnagar_refinery")
     wind_speed = weather.get("wind_speed_10m", 5.2)
     wind_direction = weather.get("wind_direction_10m", 235.0)

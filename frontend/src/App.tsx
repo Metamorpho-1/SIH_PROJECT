@@ -48,7 +48,7 @@ interface SimulationResult {
     confidence: number;
     action: string;
     explanation: string;
-    fire_footprint: {
+    descriptive_analysis?: string;    fire_footprint: {
       active_pixel_count: number;
       fire_area_m2: number;
       fire_area_hectares: number;
@@ -724,24 +724,42 @@ export default function App() {
               {/* P5: XAI Feature Attributions */}
               {activeScenario?.xai_feature_attributions && (
                 <div className="pt-3">
-                  <span className="text-[11px] font-medium text-zinc-400 block mb-2">
-                    Factor Contribution
+                  <span className="text-[9px] font-semibold tracking-[0.1em] text-zinc-500 uppercase block mb-3">
+                    Model Drivers (SHAP)
                   </span>
-                  <div className="grid grid-cols-1 gap-1.5 border border-zinc-800/50 rounded-xl bg-zinc-900/20 p-3 text-[10px] font-medium">
+                  <div className="grid grid-cols-1 gap-2.5 text-[10px] font-medium">
                     {activeScenario.xai_feature_attributions.map((attr, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
-                        <span className="text-zinc-400 w-24 truncate">{attr.feature}</span>
-                        <div className="flex-1 mx-3 bg-zinc-800 h-1 rounded-full overflow-hidden flex">
+                      <motion.div 
+                        key={idx} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.1, duration: 0.4 }}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-zinc-400 w-24 truncate tracking-wider uppercase">{attr.feature.replace(/_/g, ' ')}</span>
+                        <div className="flex-1 mx-4 bg-white/5 h-0.5 rounded-full overflow-hidden flex relative">
                           {attr.contribution > 0 ? (
-                            <div className="bg-red-400 h-full" style={{ width: `${Math.min(100, attr.contribution * 100)}%`, marginLeft: 'auto' }} />
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(100, attr.contribution * 100)}%` }}
+                              transition={{ delay: idx * 0.1 + 0.2, duration: 0.6, ease: "easeOut" }}
+                              className="bg-red-500 h-full absolute right-1/2" 
+                            />
                           ) : (
-                            <div className="bg-emerald-400 h-full" style={{ width: `${Math.min(100, Math.abs(attr.contribution) * 100)}%` }} />
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(100, Math.abs(attr.contribution) * 100)}%` }}
+                              transition={{ delay: idx * 0.1 + 0.2, duration: 0.6, ease: "easeOut" }}
+                              className="bg-emerald-500 h-full absolute left-1/2" 
+                            />
                           )}
+                          {/* Center line marker */}
+                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
                         </div>
-                        <span className={`w-10 text-right ${attr.contribution > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        <span className={`w-10 text-right font-mono tracking-wider ${attr.contribution > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                           {attr.contribution > 0 ? '+' : ''}{(attr.contribution).toFixed(2)}
                         </span>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
@@ -859,16 +877,21 @@ export default function App() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-400 font-medium">Model Confidence:</span>
-                            <span className="font-semibold text-zinc-200">{(activeScenario.cnn_verification.confidence * 100).toFixed(2)}%</span>
+                            <span className="font-semibold text-zinc-200">
+                              <AnimatedCounter value={activeScenario.cnn_verification.confidence * 100} decimals={2} />%
+                            </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-400 font-medium">Max SWIR Reflectance:</span>
-                            <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.fire_footprint.max_swir_reflectance.toFixed(3)}</span>
+                            <span className="font-semibold text-zinc-200">
+                              <AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.max_swir_reflectance} decimals={3} />
+                            </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-400 font-medium">Verified Fire Area:</span>
                             <span className="font-semibold text-zinc-200">
-                              {activeScenario.cnn_verification.fire_footprint.fire_area_m2.toLocaleString()} m² ({activeScenario.cnn_verification.fire_footprint.fire_area_hectares} ha)
+                              <AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_m2} format="comma" /> m² 
+                              (<AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_hectares} decimals={1} /> ha)
                             </span>
                           </div>
                           <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
@@ -876,9 +899,11 @@ export default function App() {
                             <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.action}</span>
                           </div>
                         </div>
-                        <p className="text-[11px] text-zinc-500 italic bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50">
-                          {activeScenario.cnn_verification.explanation}
-                        </p>
+                        {activeScenario.cnn_verification.descriptive_analysis && (
+                          <div className="mt-3 p-4 rounded-lg bg-black/40 border border-white/5 text-[11px] leading-relaxed text-zinc-300 font-medium">
+                            <TypewriterText text={activeScenario.cnn_verification.descriptive_analysis} />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -913,11 +938,15 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Evacuation Radius</p>
-                      <p className="text-zinc-200 font-semibold">{activeScenario.ndrf_sop_dispatch.evacuation_zone_km} km</p>
+                      <p className="text-zinc-200 font-semibold">
+                        <AnimatedCounter value={activeScenario.ndrf_sop_dispatch.evacuation_zone_km} decimals={1} /> km
+                      </p>
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Population at Risk</p>
-                      <p className="text-zinc-200 font-semibold">~{activeScenario.ndrf_sop_dispatch.total_population_at_risk.toLocaleString()}</p>
+                      <p className="text-zinc-200 font-semibold">
+                        ~<AnimatedCounter value={activeScenario.ndrf_sop_dispatch.total_population_at_risk} format="comma" />
+                      </p>
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Chemical Hazard</p>
@@ -925,25 +954,14 @@ export default function App() {
                     </div>
                     <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
                       <p className="text-zinc-500 font-medium mb-1">Confidence</p>
-                      <p className="text-zinc-200 font-semibold">{activeScenario.ndrf_sop_dispatch.cnn_confidence_pct}%</p>
+                      <p className="text-zinc-200 font-semibold">
+                        <AnimatedCounter value={activeScenario.ndrf_sop_dispatch.cnn_confidence_pct} decimals={1} />%
+                      </p>
                     </div>
                   </div>
                   
                   <p className="text-[11px] text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/50 mt-3">
                     Jurisdiction: <span className="text-zinc-300 font-medium">{activeScenario.ndrf_sop_dispatch.jurisdiction}</span>
-                  </p>
-                </div>
-              </motion.div>
-            )}
-            
-            {/* Actionable Notes / Demo Logs */}
-            {activeScenario?.demo_notes && (
-              <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-                <div className="h-px bg-zinc-800/50 w-full mb-6" />
-                <div className="bg-zinc-900/40 p-4 rounded-xl border border-zinc-800/60 border-l-4 border-l-indigo-500 shadow-sm">
-                  <h4 className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider mb-1">Analyst Notes</h4>
-                  <p className="text-xs text-zinc-300 leading-relaxed font-medium">
-                    <TypewriterText text={activeScenario.demo_notes} />
                   </p>
                 </div>
               </motion.div>
