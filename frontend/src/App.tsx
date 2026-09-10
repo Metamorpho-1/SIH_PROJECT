@@ -17,7 +17,7 @@ import { TelemetryChart } from './components/TelemetryChart';
 import { FacilitySelector, CorporateFacility, CORPORATE_FACILITIES } from './components/FacilitySelector';
 import { IncidentTimeline } from './components/IncidentTimeline';
 import { playRadarPing, playRedAlert, playConfirmTone, setAudioMuted } from './services/audioFx';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedCounter } from './components/AnimatedCounter';
 import { TypewriterText } from './components/TypewriterText';
 
@@ -811,30 +811,41 @@ export default function App() {
 
                 {/* Multi-Spectral Imagery Card */}
                 {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
-                  <div className="p-6 bg-black/60 border border-zinc-800/80 rounded-2xl space-y-4 font-mono">
-                    <div className="flex items-center gap-3 text-indigo-400">
-                      <Satellite className="w-5 h-5 animate-pulse" />
-                      <span className="text-xs font-semibold tracking-wider uppercase">Live Inference Feed</span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px] text-zinc-400">
-                        <span>{taskStatus?.step || 'Initializing compute cluster...'}</span>
-                        <span>{taskStatus?.progress || 0}%</span>
+                  <div className="p-8 rounded-2xl bg-zinc-950/40 border border-zinc-800/40 backdrop-blur-sm space-y-6">
+                    <div className="flex flex-col items-center justify-center space-y-5 pt-2">
+                      {/* Minimalist Glowing Dot */}
+                      <div className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-30"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-300 shadow-[0_0_10px_rgba(255,255,255,0.3)]"></span>
                       </div>
-                      <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                      
+                      {/* Graceful Single-Line Text Crossfade */}
+                      <div className="h-5 flex items-center justify-center overflow-hidden w-full">
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={taskStatus?.step || 'init'}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                            className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase"
+                          >
+                            {taskStatus?.step || 'Initializing spectral compute nodes...'}
+                          </motion.span>
+                        </AnimatePresence>
+                      </div>
+                    </div>
+
+                    {/* Ultra-Thin 1px Progress Bar */}
+                    <div className="px-6 pb-4">
+                      <div className="h-[1px] w-full bg-zinc-800/50 overflow-hidden relative">
                         <motion.div 
-                          className="h-full bg-indigo-500"
+                          className="h-full absolute left-0 top-0 bg-gradient-to-r from-zinc-600 via-zinc-200 to-white"
+                          initial={{ width: '0%' }}
                           animate={{ width: `${taskStatus?.progress || 0}%` }}
                           transition={{ ease: "linear", duration: 0.5 }}
                         />
                       </div>
-                    </div>
-                    
-                    <div className="bg-zinc-950/80 p-3 rounded-lg border border-zinc-800/50 text-[9px] text-zinc-500 leading-relaxed max-h-24 overflow-hidden">
-                      {`> [SYSTEM] Acknowledged payload from Tier 1.`}<br/>
-                      {`> [NODE] Allocating GPU resources... OK.`}<br/>
-                      {taskStatus?.step ? `> [TASK] ${taskStatus.step}` : ''}
                     </div>
                   </div>
                 ) : activeScenario?.satellite_imagery ? (

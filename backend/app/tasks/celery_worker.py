@@ -15,13 +15,16 @@ from app.pipeline.dispersion import generate_plume_hazard_cone
 from app.pipeline.chemical_profiles import get_chemical_profile, compute_chemical_emission_rate
 from app.pipeline.population_impact import estimate_population_impact
 from app.pipeline.ingestion import DEMO_FACILITIES
-from app.core.redis_client import get_redis
+import redis as sync_redis
+import os
 
 logger = logging.getLogger(__name__)
 
-async def _publish_to_redis(channel: str, message: dict):
-    redis = await get_redis()
-    await redis.publish(channel, json.dumps(message))
+def _publish_to_redis(channel: str, message: dict):
+    # Use synchronous Redis client to avoid asyncio event loop crashes in Celery
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    r = sync_redis.from_url(redis_url)
+    r.publish(channel, json.dumps(message))
     logger.info(f"Published task result to {channel}")
 
 @shared_task(bind=True, name="app.tasks.celery_worker.verify_incident_async")
@@ -126,6 +129,6 @@ def verify_incident_async(self, telemetry: Dict[str, Any], classification: Dict[
         "demo_notes": f"ASYNC PROCESSING: Tier 1 Triage completed instantly. Tier 2 Node confirmed {verified_area_m2:,.0f} m² combustion via Spectral Analysis. Weather: {wind_speed} m/s @ {wind_direction}°."
     }
     
-    # Easiest way in synchronous Celery without monkey-patching:
-    asyncio.run(_publish_to_redis("tactical_alerts", final_payload))
+    # Publish result back to WebSocket subscribers
+    _publish_to_redis("tactical_alerts", final_payload)
     return {"status": "success", "facility": facility}
