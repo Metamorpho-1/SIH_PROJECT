@@ -250,7 +250,7 @@ export default function App() {
     setCurrentTimelineStage(1);
     
     try {
-      const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}&wind_speed=${whatIfParams.wind_speed_m_s}&wind_direction=${whatIfParams.wind_direction_deg}&explosion_frp=${whatIfParams.explosion_frp_mw}`, { method: 'POST' });
       const data = await res.json();
       setActiveScenario(data);
       if (data.live_weather) {
@@ -578,7 +578,7 @@ export default function App() {
             <TacticalMap 
               targetCoords={selectedFacility.coords}
               targetName={selectedFacility.name}
-              isExplosion={activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" || activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED"}
+              isExplosion={activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" || activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" || (whatIfMode && !!activeScenario?.plume_dispersion)}
               plumeData={activeScenario?.plume_dispersion}
               liveWeather={activeScenario?.live_weather}
               liveFirmsData={showFirms ? liveFirmsData : null}

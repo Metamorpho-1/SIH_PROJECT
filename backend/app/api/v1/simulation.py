@@ -68,7 +68,7 @@ async def get_jamnagar_baseline_proof(facility: str = "jamnagar_refinery") -> Di
     }
 
 @router.post("/inject-explosion")
-async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical_type: str = "GENERIC") -> Dict[str, Any]:
+async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical_type: str = "GENERIC", wind_speed: float = None, wind_direction: float = None, explosion_frp: float = None) -> Dict[str, Any]:
     """
     Step 2-5 of Judge Demo:
     Injects a 120 MW thermal explosion spike into telemetry.
@@ -77,6 +77,9 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
     """
     telemetry = get_simulated_telemetry(facility_key=facility, inject_spike=True)
     telemetry["facility_key"] = facility
+    if explosion_frp is not None:
+        telemetry["frp"] = explosion_frp
+        
     classification = triage_classifier.predict(telemetry)
     
     # Fast Triage XAI
@@ -88,6 +91,11 @@ async def inject_jamnagar_incident(facility: str = "jamnagar_refinery", chemical
     except Exception as e:
         logger.warning(f"Weather fetch failed for {facility}, using defaults: {e}")
         weather = {"wind_speed_10m": 5.2, "wind_direction_10m": 235.0, "computed_stability_class": "C", "source": "fallback"}
+        
+    if wind_speed is not None:
+        weather["wind_speed_10m"] = wind_speed
+    if wind_direction is not None:
+        weather["wind_direction_10m"] = wind_direction
         
     if chemical_type == "GENERIC":
         facility_chems = get_facility_chemicals(facility)

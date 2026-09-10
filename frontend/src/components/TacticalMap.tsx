@@ -303,11 +303,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               <span>Wind Conditions</span>
             </span>
             <span className="font-mono bg-zinc-800 px-2 py-0.5 rounded-lg text-xs">
-              {liveWeather?.wind_speed_10m ?? plumeData.properties?.wind_speed_m_s ?? 5.2} m/s
+              {plumeData?.properties?.wind_speed_m_s ?? liveWeather?.wind_speed_10m ?? 5.2} m/s
             </span>
           </div>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Plume dispersion based on {liveWeather?.wind_direction_10m ?? plumeData.properties?.wind_direction_deg ?? 235}° wind direction and Stability Class {liveWeather?.computed_stability_class ?? plumeData.properties?.stability_class ?? 'C'}.
+            Plume dispersion based on {plumeData?.properties?.wind_direction_deg ?? liveWeather?.wind_direction_10m ?? 235}° wind direction and Stability Class {plumeData?.properties?.stability_class ?? liveWeather?.computed_stability_class ?? 'C'}.
           </p>
           <div className="flex flex-col gap-1.5 pt-2 text-[11px] font-medium">
             {plumeData.features?.map((feat) => (
