@@ -41,7 +41,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ beforeUrl,
   return (
     <div 
       ref={containerRef}
-      className="relative w-full aspect-square max-w-sm mx-auto overflow-hidden rounded-xl border border-zinc-800/80 cursor-ew-resize select-none"
+      className="relative w-full w-full h-full overflow-hidden cursor-ew-resize select-none"
       onMouseDown={(e) => {
         setIsDragging(true);
         handleMove(e.clientX);

@@ -854,7 +854,7 @@ export default function App() {
                     </div>
 
                     {/* Satellite Image Display */}
-                    <div className="relative aspect-square max-w-sm mx-auto rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
+                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
                       
                       {/* Interactive Slider for 'After' state */}
                       {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" && baselineImagery ? (
@@ -946,40 +946,34 @@ export default function App() {
 
                     {/* CNN Metrics Details */}
                     {activeScenario?.cnn_verification && (
-                      <div className="space-y-2.5 pt-2 text-xs">
-                        <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/60 space-y-2.5">
+                      <div className="space-y-3 pt-4 text-xs">
+                        <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">Validation Class:</span>
-                            <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'}`}>
+                            <span className="text-zinc-400 font-medium">CNN Classification:</span>
+                            <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'} uppercase tracking-wide`}>
                               {activeScenario.cnn_verification.prediction_class.replace(/_/g, ' ')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">Model Confidence:</span>
-                            <span className="font-semibold text-zinc-200">
-                              <AnimatedCounter value={activeScenario.cnn_verification.confidence * 100} decimals={2} />%
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">Max SWIR Reflectance:</span>
-                            <span className="font-semibold text-zinc-200">
-                              <AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.max_swir_reflectance} decimals={3} />
+                            <span className="text-zinc-400 font-medium">CNN Confidence:</span>
+                            <span className="font-semibold text-amber-500">
+                              <AnimatedCounter value={activeScenario.cnn_verification.confidence * 100} decimals={1} />%
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-zinc-400 font-medium">Verified Fire Area:</span>
-                            <span className="font-semibold text-zinc-200">
+                            <span className="font-semibold text-zinc-100">
                               <AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_m2} format="comma" /> m² 
                               (<AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_hectares} decimals={1} /> ha)
                             </span>
                           </div>
-                          <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
-                            <span className="text-zinc-400 font-medium">System Action:</span>
-                            <span className="font-semibold text-zinc-200">{activeScenario.cnn_verification.action}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400 font-medium">Action:</span>
+                            <span className="font-semibold text-sky-400 uppercase tracking-wide">{activeScenario.cnn_verification.action}</span>
                           </div>
                         </div>
                         {activeScenario.cnn_verification.descriptive_analysis && (
-                          <div className="mt-3 p-4 rounded-lg bg-black/40 border border-white/5 text-[11px] leading-relaxed text-zinc-300 font-medium">
+                          <div className="mt-2 p-4 rounded-lg bg-black/60 border border-zinc-800/50 text-[11px] leading-relaxed text-zinc-400 italic">
                             <TypewriterText text={activeScenario.cnn_verification.descriptive_analysis} />
                           </div>
                         )}
