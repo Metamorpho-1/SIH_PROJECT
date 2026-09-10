@@ -140,7 +140,8 @@ async def get_task_status(task_id: str):
         return {
             "status": "SUCCESS",
             "step": "Complete",
-            "progress": 100
+            "progress": 100,
+            "result": result.result
         }
     else:
         return {

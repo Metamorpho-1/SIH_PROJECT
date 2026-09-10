@@ -131,4 +131,4 @@ def verify_incident_async(self, telemetry: Dict[str, Any], classification: Dict[
     
     # Publish result back to WebSocket subscribers
     _publish_to_redis("tactical_alerts", final_payload)
-    return {"status": "success", "facility": facility}
+    return final_payload

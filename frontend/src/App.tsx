@@ -297,6 +297,16 @@ export default function App() {
           const res = await fetch(`${API_BASE}/simulation/task-status/${(activeScenario as any).task_id}`);
           const data = await res.json();
           setTaskStatus(data);
+          
+          // Fallback in case WebSocket is disconnected: if backend says SUCCESS, apply the result directly
+          if (data.status === 'SUCCESS' && data.result) {
+            playRedAlert();
+            setActiveScenario(data.result);
+            setCurrentTimelineStage(2);
+            setTimeout(() => {
+              setCurrentTimelineStage(3);
+            }, 2000);
+          }
         } catch (err) {
           console.error('Failed to fetch task status', err);
         }
