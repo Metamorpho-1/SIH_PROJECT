@@ -10,7 +10,6 @@ import {
   VolumeX,
   FileText,
   Wifi,
-  AlertTriangle
 } from 'lucide-react';
 import { BeforeAfterSlider } from './components/BeforeAfterSlider';
 import { TacticalMap } from './components/TacticalMap';
@@ -957,33 +956,38 @@ export default function App() {
                     {/* CNN Metrics Details */}
                     {activeScenario?.cnn_verification && (
                       <div className="space-y-3 pt-4 text-xs">
-                        <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-3">
+                        <div className="p-4 rounded-xl bg-zinc-900/40 border border-white/5 space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">CNN Classification:</span>
-                            <span className={`font-semibold ${activeScenario.cnn_verification.is_verified_fire ? 'text-red-400' : 'text-emerald-400'} uppercase tracking-wide`}>
+                            <span className="text-zinc-500 font-medium">CNN Classification:</span>
+                            <span className="flex items-center gap-1.5 font-semibold text-zinc-200 uppercase tracking-wide">
+                              <span className={`w-1.5 h-1.5 rounded-full ${activeScenario.cnn_verification.is_verified_fire ? 'bg-red-500' : 'bg-emerald-500'}`} />
                               {activeScenario.cnn_verification.prediction_class.replace(/_/g, ' ')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">CNN Confidence:</span>
-                            <span className="font-semibold text-amber-500">
+                            <span className="text-zinc-500 font-medium">CNN Confidence:</span>
+                            <span className="font-semibold text-zinc-200">
                               <AnimatedCounter value={activeScenario.cnn_verification.confidence * 100} decimals={1} />%
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">Verified Fire Area:</span>
-                            <span className="font-semibold text-zinc-100">
+                            <span className="text-zinc-500 font-medium">Verified Fire Area:</span>
+                            <span className="font-semibold text-zinc-200">
                               <AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_m2} format="comma" /> m² 
-                              (<AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_hectares} decimals={1} /> ha)
+                              <span className="text-zinc-500 font-normal ml-1">
+                                (<AnimatedCounter value={activeScenario.cnn_verification.fire_footprint.fire_area_hectares} decimals={1} /> ha)
+                              </span>
                             </span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400 font-medium">Action:</span>
-                            <span className="font-semibold text-sky-400 uppercase tracking-wide">{activeScenario.cnn_verification.action}</span>
+                          <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
+                            <span className="text-zinc-500 font-medium pt-0.5">Action:</span>
+                            <span className="mt-0.5 font-medium text-[10px] text-zinc-300 bg-zinc-800/50 px-2 py-0.5 rounded border border-white/5 uppercase tracking-wide">
+                              {activeScenario.cnn_verification.action}
+                            </span>
                           </div>
                         </div>
                         {activeScenario.cnn_verification.descriptive_analysis && (
-                          <div className="mt-2 p-4 rounded-lg bg-black/60 border border-zinc-800/50 text-[11px] leading-relaxed text-zinc-400 italic">
+                          <div className="mt-2 py-3 px-4 border-l-2 border-zinc-700 bg-gradient-to-r from-zinc-900/50 to-transparent text-[11px] leading-relaxed text-zinc-400">
                             <TypewriterText text={activeScenario.cnn_verification.descriptive_analysis} />
                           </div>
                         )}
@@ -1010,32 +1014,32 @@ export default function App() {
                   </span>
                 </div>
                 
-                <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-900/30 space-y-3 shadow-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4" />
+                <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between mb-2 border-b border-white/5 pb-2">
+                    <span className="text-[10px] font-semibold text-zinc-300 uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                       NDRF DISPATCH: {activeScenario.ndrf_sop_dispatch.status}
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/5">
                       <p className="text-zinc-500 font-medium mb-1">Evacuation Radius</p>
                       <p className="text-zinc-200 font-semibold">
                         <AnimatedCounter value={activeScenario.plume_dispersion?.properties?.max_evacuation_radius_km ?? activeScenario.ndrf_sop_dispatch.evacuation_zone_km} decimals={1} /> km
                       </p>
                     </div>
-                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/5">
                       <p className="text-zinc-500 font-medium mb-1">Population at Risk</p>
                       <p className="text-zinc-200 font-semibold">
                         ~<AnimatedCounter value={activeScenario.population_impact?.total_estimated_exposed ?? activeScenario.ndrf_sop_dispatch.total_population_at_risk} format="comma" />
                       </p>
                     </div>
-                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/5">
                       <p className="text-zinc-500 font-medium mb-1">Chemical Hazard</p>
-                      <p className="text-red-400 font-semibold">{activeScenario.chemical_profile?.primary_hazard ?? activeScenario.ndrf_sop_dispatch.chemical_hazard}</p>
+                      <p className="text-zinc-200 font-semibold truncate" title={activeScenario.chemical_profile?.primary_hazard ?? activeScenario.ndrf_sop_dispatch.chemical_hazard}>{activeScenario.chemical_profile?.primary_hazard ?? activeScenario.ndrf_sop_dispatch.chemical_hazard}</p>
                     </div>
-                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/5">
                       <p className="text-zinc-500 font-medium mb-1">Confidence</p>
                       <p className="text-zinc-200 font-semibold">
                         <AnimatedCounter value={activeScenario.cnn_verification?.confidence ? activeScenario.cnn_verification.confidence * 100 : activeScenario.ndrf_sop_dispatch.cnn_confidence_pct} decimals={1} />%
@@ -1043,8 +1047,8 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <p className="text-[11px] text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/50 mt-3">
-                    Jurisdiction: <span className="text-zinc-300 font-medium">{activeScenario.ndrf_sop_dispatch.jurisdiction}</span>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed pt-1">
+                    Jurisdiction: <span className="text-zinc-400 font-medium">{activeScenario.ndrf_sop_dispatch.jurisdiction}</span>
                   </p>
                 </div>
               </motion.div>
