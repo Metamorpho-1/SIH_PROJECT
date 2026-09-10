@@ -477,13 +477,13 @@ export default function App() {
               <span>Inject Incident</span>
             </button>
 
-            {isExplosion && (
+            {activeScenario && (
               <button
                 onClick={downloadDossier}
-                className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-900 transition duration-200 shadow-sm"
+                className="flex items-center space-x-2 px-3 py-1.5 ml-2 rounded-md text-[11px] uppercase tracking-wider font-semibold bg-white hover:bg-zinc-200 text-black transition-all duration-300 shadow-sm"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Export Dossier</span>
+                <FileText className="w-3 h-3" />
+                <span>Export</span>
               </button>
             )}
 
@@ -548,76 +548,74 @@ export default function App() {
             />
 
             {/* P2: What-If Digital Twin Sandbox Overlay */}
-            {isExplosion && (
-              <div className="absolute top-6 left-6 z-[500] w-80 bg-zinc-900/80 backdrop-blur-xl border border-zinc-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                <div className="bg-black/40 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold tracking-[0.15em] text-zinc-300 uppercase flex items-center gap-2">
-                    Parameters
-                  </span>
-                  <button 
-                    onClick={() => setWhatIfMode(!whatIfMode)}
-                    className={`text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded transition ${whatIfMode ? 'bg-white/10 text-white' : 'bg-transparent text-zinc-500 border border-white/10'}`}
-                  >
-                    {whatIfMode ? 'Active' : 'Edit'}
-                  </button>
-                </div>
-                
-                {whatIfMode && (
-                  <div className="p-4 space-y-5 text-[11px] font-medium bg-black/60 backdrop-blur-md">
-                    <div className="space-y-2">
-                      <label className="text-zinc-500 uppercase tracking-wider flex justify-between">
-                        <span>Profile</span>
-                      </label>
-                      <select 
-                        value={whatIfParams.chemical_type}
-                        onChange={(e) => setWhatIfParams(p => ({ ...p, chemical_type: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded px-3 py-1.5 text-zinc-200 outline-none focus:border-white/20 transition appearance-none"
-                      >
-                        {(activeScenario?.available_chemicals || ['GENERIC']).map(chem => (
-                          <option key={chem} value={chem}>{chem.replace(/_/g, ' ')}</option>
-                        ))}
-                        <option value="BENZENE">BENZENE</option>
-                        <option value="AMMONIA">AMMONIA</option>
-                        <option value="CHLORINE">CHLORINE</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-zinc-400 flex justify-between">
-                        <span>Wind Speed</span>
-                        <span className="text-zinc-100">{whatIfParams.wind_speed_m_s} m/s</span>
-                      </label>
-                      <input 
-                        type="range" min="0" max="25" step="0.5"
-                        value={whatIfParams.wind_speed_m_s}
-                        onChange={(e) => setWhatIfParams(p => ({ ...p, wind_speed_m_s: parseFloat(e.target.value) }))}
-                        className="w-full accent-zinc-400"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-zinc-400 flex justify-between">
-                        <span>Wind Direction</span>
-                        <span className="text-zinc-100">{whatIfParams.wind_direction_deg}°</span>
-                      </label>
-                      <input 
-                        type="range" min="0" max="360" step="5"
-                        value={whatIfParams.wind_direction_deg}
-                        onChange={(e) => setWhatIfParams(p => ({ ...p, wind_direction_deg: parseFloat(e.target.value) }))}
-                        className="w-full accent-zinc-400"
-                      />
-                    </div>
-                    
-                    {activeScenario?.population_impact && (
-                      <div className="mt-3 p-3 bg-red-950/20 border border-red-900/30 rounded-xl flex justify-between items-center">
-                        <span className="text-zinc-400">Est. Pop at Risk:</span>
-                        <span className="text-red-400 font-semibold">{activeScenario.population_impact.total_estimated_exposed.toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+            <div className="absolute top-6 left-6 z-[500] w-80 bg-black/40 backdrop-blur-xl border border-white/5 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="bg-black/60 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-semibold tracking-[0.15em] text-zinc-300 uppercase flex items-center gap-2">
+                  Parameters
+                </span>
+                <button 
+                  onClick={() => setWhatIfMode(!whatIfMode)}
+                  className={`text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded transition ${whatIfMode ? 'bg-white/10 text-white' : 'bg-transparent text-zinc-500 border border-white/10'}`}
+                >
+                  {whatIfMode ? 'Hide' : 'Edit'}
+                </button>
               </div>
-            )}
+              
+              {whatIfMode && (
+                <div className="p-4 space-y-5 text-[11px] font-medium bg-black/60 backdrop-blur-md">
+                  <div className="space-y-2">
+                    <label className="text-zinc-500 uppercase tracking-wider flex justify-between">
+                      <span>Profile</span>
+                    </label>
+                    <select 
+                      value={whatIfParams.chemical_type}
+                      onChange={(e) => setWhatIfParams(p => ({ ...p, chemical_type: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded px-3 py-1.5 text-zinc-200 outline-none focus:border-white/20 transition appearance-none"
+                    >
+                      {(activeScenario?.available_chemicals || ['GENERIC']).map(chem => (
+                        <option key={chem} value={chem}>{chem.replace(/_/g, ' ')}</option>
+                      ))}
+                      <option value="BENZENE">BENZENE</option>
+                      <option value="AMMONIA">AMMONIA</option>
+                      <option value="CHLORINE">CHLORINE</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-zinc-400 flex justify-between">
+                      <span>Wind Speed</span>
+                      <span className="text-zinc-100">{whatIfParams.wind_speed_m_s} m/s</span>
+                    </label>
+                    <input 
+                      type="range" min="0" max="25" step="0.5"
+                      value={whatIfParams.wind_speed_m_s}
+                      onChange={(e) => setWhatIfParams(p => ({ ...p, wind_speed_m_s: parseFloat(e.target.value) }))}
+                      className="w-full accent-zinc-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-zinc-400 flex justify-between">
+                      <span>Wind Direction</span>
+                      <span className="text-zinc-100">{whatIfParams.wind_direction_deg}°</span>
+                    </label>
+                    <input 
+                      type="range" min="0" max="360" step="5"
+                      value={whatIfParams.wind_direction_deg}
+                      onChange={(e) => setWhatIfParams(p => ({ ...p, wind_direction_deg: parseFloat(e.target.value) }))}
+                      className="w-full accent-zinc-400"
+                    />
+                  </div>
+                  
+                  {activeScenario?.population_impact && (
+                    <div className="mt-3 p-3 bg-red-950/20 border border-red-900/30 rounded-xl flex justify-between items-center">
+                      <span className="text-zinc-400">Est. Pop at Risk:</span>
+                      <span className="text-red-400 font-semibold">{activeScenario.population_impact.total_estimated_exposed.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Incident Timeline Scrubber */}
