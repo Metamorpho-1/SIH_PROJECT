@@ -12,6 +12,7 @@ import {
   Wifi,
   AlertTriangle
 } from 'lucide-react';
+import { BeforeAfterSlider } from './components/BeforeAfterSlider';
 import { TacticalMap } from './components/TacticalMap';
 import { TelemetryChart } from './components/TelemetryChart';
 import { FacilitySelector, CorporateFacility, CORPORATE_FACILITIES } from './components/FacilitySelector';
@@ -130,7 +131,7 @@ export default function App() {
   const [currentTimelineStage, setCurrentTimelineStage] = useState(0);
   const [currentTimeUTC, setCurrentTimeUTC] = useState('');
   const [taskStatus, setTaskStatus] = useState<{status: string, step: string, progress: number} | null>(null);  
-  // P4: WebSocket State
+  const [baselineImagery, setBaselineImagery] = useState<any>(null);  // P4: WebSocket State
   const [wsConnected, setWsConnected] = useState(false);
   const [wsSocket, setWsSocket] = useState<WebSocket | null>(null);
 
@@ -224,7 +225,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/simulation/baseline-proof?facility=${facilityKey}`);
       const data = await res.json();
       setActiveScenario(data);
-      setWhatIfParams(prev => ({ ...prev, chemical_type: data.available_chemicals?.[0] || 'GENERIC' }));
+      setBaselineImagery(data.satellite_imagery);      setWhatIfParams(prev => ({ ...prev, chemical_type: data.available_chemicals?.[0] || 'GENERIC' }));
       playConfirmTone();
     } catch (err) {
       console.error('API baseline fetch error:', err);
@@ -252,7 +253,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}`, { method: 'POST' });
       const data = await res.json();
       setActiveScenario(data);
-      if (data.live_weather) {
+      setBaselineImagery(data.satellite_imagery);      if (data.live_weather) {
         setWhatIfParams(prev => ({
           ...prev,
           wind_speed_m_s: data.live_weather.wind_speed_10m || 5.2,
@@ -802,53 +803,14 @@ export default function App() {
               <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="space-y-4 pt-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                   <h3 className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    02 // Spectral Validation
+                    02 // Multi-Spectral Analysis
                   </h3>
                   <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
                     Sentinel-2
                   </span>
                 </div>
 
-                {/* Multi-Spectral Imagery Card */}
-                {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" ? (
-                  <div className="p-8 rounded-2xl bg-zinc-950/40 border border-zinc-800/40 backdrop-blur-sm space-y-6">
-                    <div className="flex flex-col items-center justify-center space-y-5 pt-2">
-                      {/* Minimalist Glowing Dot */}
-                      <div className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-30"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-300 shadow-[0_0_10px_rgba(255,255,255,0.3)]"></span>
-                      </div>
-                      
-                      {/* Graceful Single-Line Text Crossfade */}
-                      <div className="h-5 flex items-center justify-center overflow-hidden w-full">
-                        <AnimatePresence mode="wait">
-                          <motion.span
-                            key={taskStatus?.step || 'init'}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase"
-                          >
-                            {taskStatus?.step || 'Initializing spectral compute nodes...'}
-                          </motion.span>
-                        </AnimatePresence>
-                      </div>
-                    </div>
-
-                    {/* Ultra-Thin 1px Progress Bar */}
-                    <div className="px-6 pb-4">
-                      <div className="h-[1px] w-full bg-zinc-800/50 overflow-hidden relative">
-                        <motion.div 
-                          className="h-full absolute left-0 top-0 bg-gradient-to-r from-zinc-600 via-zinc-200 to-white"
-                          initial={{ width: '0%' }}
-                          animate={{ width: `${taskStatus?.progress || 0}%` }}
-                          transition={{ ease: "linear", duration: 0.5 }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : activeScenario?.satellite_imagery ? (
+                {activeScenario?.satellite_imagery || baselineImagery ? (
                   <div className="p-4 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
@@ -892,19 +854,29 @@ export default function App() {
                     </div>
 
                     {/* Satellite Image Display */}
-                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
-                      <img 
-                        src={satelliteViewMode === 'rgb' 
-                          ? activeScenario.satellite_imagery.rgb_preview_url 
-                          : activeScenario.satellite_imagery.swir_preview_url
-                        }
-                        alt="Sentinel-2 Satellite Imagery"
-                        className="w-full h-full object-cover opacity-90"
-                      />
+                    <div className="relative aspect-square max-w-sm mx-auto rounded-xl overflow-hidden border border-zinc-800/80 bg-zinc-950 flex items-center justify-center">
+                      
+                      {/* Interactive Slider for 'After' state */}
+                      {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" && baselineImagery ? (
+                        <BeforeAfterSlider
+                          beforeUrl={satelliteViewMode === 'rgb' ? baselineImagery.rgb_preview_url : baselineImagery.swir_preview_url}
+                          afterUrl={satelliteViewMode === 'rgb' ? activeScenario?.satellite_imagery?.rgb_preview_url || "" : activeScenario?.satellite_imagery?.swir_preview_url || ""}
+                        />
+                      ) : (
+                        /* Static Image for Baseline / Queued state */
+                        <img 
+                          src={satelliteViewMode === 'rgb' 
+                            ? (baselineImagery || activeScenario?.satellite_imagery)?.rgb_preview_url 
+                            : (baselineImagery || activeScenario?.satellite_imagery)?.swir_preview_url
+                          }
+                          alt="Sentinel-2 Satellite Imagery"
+                          className="w-full h-full object-cover opacity-90"
+                        />
+                      )}
 
                       {/* Combustion Mask Overlay */}
-                      {satelliteViewMode === 'mask' && activeScenario.cnn_verification && (
-                        <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                      {satelliteViewMode === 'mask' && activeScenario?.cnn_verification && activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION" && (
+                        <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm flex items-center justify-center pointer-events-none z-20">
                           <div className="text-center p-4 rounded-xl bg-zinc-950/90 border border-indigo-500/30 text-indigo-200 shadow-xl">
                             <p className="text-xs font-semibold text-indigo-300 mb-1">Combustion Core Isolated</p>
                             <p className="text-[11px] text-zinc-400">
@@ -915,17 +887,65 @@ export default function App() {
                         </div>
                       )}
 
-                      <div className="absolute bottom-2 left-2 bg-zinc-950/80 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-medium text-zinc-400 border border-zinc-800/50">
-                        {satelliteViewMode === 'rgb' 
-                          ? 'B04-B03-B02 (Natural Visible)' 
-                          : satelliteViewMode === 'swir' 
-                            ? 'B12-B08-B04 (SWIR False Color)' 
-                            : 'AuraFire Multi-Spectral Segmentation'}
+                      {/* Queued Processing Overlay */}
+                      {activeScenario?.scenario === "INCIDENT_SIMULATION_EXPLOSION_QUEUED" && (
+                        <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-md flex flex-col justify-end z-30">
+                          <div className="p-6 space-y-5">
+                            <div className="flex flex-col items-center justify-center space-y-5 pt-2">
+                              <div className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-30"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-300 shadow-[0_0_10px_rgba(255,255,255,0.3)]"></span>
+                              </div>
+                              
+                              <div className="h-5 flex items-center justify-center overflow-hidden w-full">
+                                <AnimatePresence mode="wait">
+                                  <motion.span
+                                    key={taskStatus?.step || 'init'}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.4, ease: "easeOut" }}
+                                    className="text-[11px] font-medium text-zinc-400 tracking-wider uppercase text-center"
+                                  >
+                                    {taskStatus?.step || 'Initializing spectral compute nodes...'}
+                                  </motion.span>
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                            <div className="w-full pb-2">
+                              <div className="h-[1px] w-full bg-zinc-800/50 overflow-hidden relative">
+                                <motion.div 
+                                  className="h-full absolute left-0 top-0 bg-gradient-to-r from-zinc-600 via-zinc-200 to-white"
+                                  initial={{ width: '0%' }}
+                                  animate={{ width: `${taskStatus?.progress || 0}%` }}
+                                  transition={{ ease: "linear", duration: 0.5 }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {activeScenario?.scenario !== "INCIDENT_SIMULATION_EXPLOSION" && (
+                        <div className="absolute bottom-2 left-2 bg-zinc-950/80 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-medium text-zinc-400 border border-zinc-800/50 z-10">
+                          {satelliteViewMode === 'rgb' ? 'TCI (True Color RGB)' : 'B12 (SWIR Thermal)'}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                      <div>
+                        <span className="block text-[9px] font-medium text-zinc-500 uppercase tracking-widest mb-1">GSD</span>
+                        <span className="text-xs font-mono text-zinc-300">{(baselineImagery || activeScenario?.satellite_imagery)?.gsd_meters}m / px</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-medium text-zinc-500 uppercase tracking-widest mb-1">Dimensions</span>
+                        <span className="text-xs font-mono text-zinc-300">{(baselineImagery || activeScenario?.satellite_imagery)?.patch_dimensions}</span>
                       </div>
                     </div>
 
                     {/* CNN Metrics Details */}
-                    {activeScenario.cnn_verification && (
+                    {activeScenario?.cnn_verification && (
                       <div className="space-y-2.5 pt-2 text-xs">
                         <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/60 space-y-2.5">
                           <div className="flex items-center justify-between">
