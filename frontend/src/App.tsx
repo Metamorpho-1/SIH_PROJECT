@@ -950,7 +950,7 @@ export default function App() {
                       </div>
                       <div>
                         <span className="block text-[9px] font-medium text-zinc-500 uppercase tracking-widest mb-1">Dimensions</span>
-                        <span className="text-xs font-mono text-zinc-300">{(baselineImagery || activeScenario?.satellite_imagery)?.patch_dimensions}</span>
+                        <span className="text-xs font-mono text-zinc-300">{(baselineImagery || activeScenario?.satellite_imagery)?.patch_dimensions?.join(' x ')} px</span>
                       </div>
                     </div>
 
