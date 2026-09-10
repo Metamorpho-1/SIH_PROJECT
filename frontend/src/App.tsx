@@ -253,7 +253,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/simulation/inject-explosion?facility=${facilityKey}&chemical_type=${whatIfParams.chemical_type}`, { method: 'POST' });
       const data = await res.json();
       setActiveScenario(data);
-      setBaselineImagery(data.satellite_imagery);      if (data.live_weather) {
+      if (data.live_weather) {
         setWhatIfParams(prev => ({
           ...prev,
           wind_speed_m_s: data.live_weather.wind_speed_10m || 5.2,
